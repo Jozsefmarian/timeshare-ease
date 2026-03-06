@@ -7,6 +7,7 @@ import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import SellerDashboard from "./pages/SellerDashboard";
 import NewCase from "./pages/NewCase";
+import CaseDetail from "./pages/CaseDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
