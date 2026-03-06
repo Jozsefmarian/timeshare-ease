@@ -11,6 +11,8 @@ import CaseDetail from "./pages/CaseDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCases from "./pages/AdminCases";
 import AdminCaseDetail from "./pages/AdminCaseDetail";
+import AdminPolicies from "./pages/AdminPolicies";
+import AdminPolicyDetail from "./pages/AdminPolicyDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/cases" element={<AdminCases />} />
           <Route path="/admin/case/:caseId" element={<AdminCaseDetail />} />
+          <Route path="/admin/policies" element={<AdminPolicies />} />
+          <Route path="/admin/policy/:policyId" element={<AdminPolicyDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
