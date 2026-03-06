@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/seller" element={<SellerDashboard />} />
           <Route path="/seller/new-case" element={<NewCase />} />
+          <Route path="/seller/case/:caseId" element={<CaseDetail />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
