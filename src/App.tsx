@@ -7,6 +7,7 @@ import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import SellerDashboard from "./pages/SellerDashboard";
 import NewCase from "./pages/NewCase";
+import CaseDetail from "./pages/CaseDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/seller" element={<SellerDashboard />} />
           <Route path="/seller/new-case" element={<NewCase />} />
+          <Route path="/seller/case/:caseId" element={<CaseDetail />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
