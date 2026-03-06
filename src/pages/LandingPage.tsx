@@ -5,37 +5,37 @@ import { Button } from "@/components/ui/button";
 const steps = [
   {
     icon: FileCheck,
-    title: "Submit your timeshare details",
-    description: "Tell us about your timeshare week, resort, and ownership type.",
+    title: "Üdülési jog adatainak megadása",
+    description: "Adja meg üdülési hetének, üdülőhelyének és tulajdonjogának adatait.",
   },
   {
     icon: Shield,
-    title: "Document verification",
-    description: "We validate your ownership documents and prepare everything for transfer.",
+    title: "Dokumentum ellenőrzés",
+    description: "Ellenőrizzük tulajdonjogi dokumentumait és előkészítünk mindent az átruházáshoz.",
   },
   {
     icon: Users,
-    title: "Buyer matching & negotiation",
-    description: "We connect you with verified buyers and handle the negotiation process.",
+    title: "Adásvételi szerződés",
+    description: "A rendszer elkészíti az adásvételi szerződést az Ön által megadott adatok alapján.",
   },
   {
     icon: CheckCircle,
-    title: "Secure transfer & payment",
-    description: "Legal transfer is completed and funds are securely released to you.",
+    title: "Szolgáltatási szerződés és fizetés",
+    description: "Az adásvételi szerződés aláírása után a szolgáltatási díj megfizetésével lezárjuk az ügyet.",
   },
 ];
 
 const trustItems = [
-  { value: "2,500+", label: "Transfers completed" },
-  { value: "98%", label: "Client satisfaction" },
-  { value: "Licensed", label: "Legal professionals" },
-  { value: "Secured", label: "Escrow payments" },
+  { value: "2 500+", label: "Befejezett átruházás" },
+  { value: "98%", label: "Ügyfél-elégedettség" },
+  { value: "Engedéllyel", label: "Jogi szakemberek" },
+  { value: "Biztosított", label: "Letéti fizetések" },
 ];
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar */}
+      {/* Navigáció */}
       <nav className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-2">
@@ -44,52 +44,51 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
             <a href="#how-it-works" className="hover:text-foreground transition-colors">
-              How it works
+              Hogyan működik
             </a>
             <a href="#trust" className="hover:text-foreground transition-colors">
-              Why us
+              Miért mi
             </a>
             <Link to="/auth">
               <Button variant="outline" size="sm">
-                Log in
+                Bejelentkezés
               </Button>
             </Link>
             <Link to="/auth">
               <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-                Get started
+                Kezdés
               </Button>
             </Link>
           </div>
           <Link to="/auth" className="md:hidden">
             <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-              Get started
+              Kezdés
             </Button>
           </Link>
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* Főszekció */}
       <section className="gradient-hero relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_hsla(174,84%,40%,0.15),_transparent_60%)]" />
         <div className="container mx-auto px-4 py-24 md:py-36 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary-foreground/20 text-primary-foreground/80 text-sm mb-8">
               <Shield className="h-4 w-4" />
-              Trusted by thousands of timeshare owners
+              Üdülési jog tulajdonosok ezrei bíznak bennünk
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground leading-tight mb-6">
               Eladná üdülési hetét? Mi megvásároljuk.
             </h1>
             <p className="text-lg md:text-xl text-primary-foreground/70 mb-10 max-w-2xl mx-auto">
-              Our legal-tech platform handles document validation, buyer matching, and secure transfers — so you don't
-              have to.
+              Jogi-technológiai platformunk kezeli a dokumentumok ellenőrzését, az adásvételi szerződést és a biztonságos átruházást — hogy Önnek ne kelljen.
             </p>
             <Link to="/auth">
               <Button
                 size="lg"
                 className="bg-secondary text-secondary-foreground hover:bg-secondary/90 text-base px-8 py-6 rounded-xl shadow-lg"
               >
-                Start selling your timeshare
+                Üdülési jog eladásának indítása
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -97,7 +96,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Trust indicators */}
+      {/* Bizalmi mutatók */}
       <section id="trust" className="border-b border-border">
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -111,13 +110,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
+      {/* Hogyan működik */}
       <section id="how-it-works" className="py-20 md:py-28">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-primary mb-4">How it works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-primary mb-4">Hogyan működik</h2>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              Four simple steps to transfer your timeshare ownership securely and legally.
+              Négy egyszerű lépés az üdülési jog biztonságos és jogszerű átruházásához.
             </p>
           </div>
           <div className="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
@@ -140,7 +139,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Lábléc */}
       <footer className="bg-primary text-primary-foreground/70">
         <div className="container mx-auto px-4 py-12">
           <div className="grid md:grid-cols-4 gap-8">
@@ -149,39 +148,39 @@ export default function LandingPage() {
                 <Shield className="h-6 w-6 text-secondary" />
                 <span className="text-lg font-bold text-primary-foreground">TimeshareRelease</span>
               </div>
-              <p className="text-sm">Secure timeshare ownership transfers powered by legal technology.</p>
+              <p className="text-sm">Biztonságos üdülési jog átruházás jogi technológiával.</p>
             </div>
             <div>
-              <h4 className="font-semibold text-primary-foreground mb-3 text-sm">Legal</h4>
+              <h4 className="font-semibold text-primary-foreground mb-3 text-sm">Jogi</h4>
               <ul className="space-y-2 text-sm">
                 <li>
                   <a href="#" className="hover:text-primary-foreground transition-colors">
-                    Privacy Policy
+                    Adatvédelmi szabályzat
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-primary-foreground transition-colors">
-                    Terms of Service
+                    Felhasználási feltételek
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-primary-foreground transition-colors">
-                    Refund Policy
+                    Visszatérítési szabályzat
                   </a>
                 </li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-primary-foreground mb-3 text-sm">Company</h4>
+              <h4 className="font-semibold text-primary-foreground mb-3 text-sm">Cég</h4>
               <ul className="space-y-2 text-sm">
                 <li>
                   <a href="#" className="hover:text-primary-foreground transition-colors">
-                    About us
+                    Rólunk
                   </a>
                 </li>
                 <li>
                   <a href="#" className="hover:text-primary-foreground transition-colors">
-                    Careers
+                    Karrier
                   </a>
                 </li>
                 <li>
@@ -192,7 +191,7 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-primary-foreground mb-3 text-sm">Contact</h4>
+              <h4 className="font-semibold text-primary-foreground mb-3 text-sm">Kapcsolat</h4>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center gap-2">
                   <Mail className="h-4 w-4" /> support@timesharerelease.com
@@ -204,7 +203,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-primary-foreground/10 mt-8 pt-8 text-center text-sm">
-            © {new Date().getFullYear()} TimeshareRelease. All rights reserved.
+            © {new Date().getFullYear()} TimeshareRelease. Minden jog fenntartva.
           </div>
         </div>
       </footer>
