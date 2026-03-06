@@ -13,6 +13,8 @@ import AdminCases from "./pages/AdminCases";
 import AdminCaseDetail from "./pages/AdminCaseDetail";
 import AdminPolicies from "./pages/AdminPolicies";
 import AdminPolicyDetail from "./pages/AdminPolicyDetail";
+import AdminInventory from "./pages/AdminInventory";
+import AdminInventoryDetail from "./pages/AdminInventoryDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
