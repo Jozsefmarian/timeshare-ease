@@ -171,37 +171,8 @@ export default function NewCase() {
     }
   };
 
-  if (submitted) {
-    return (
-      <SellerLayout>
-        <div className="max-w-xl mx-auto py-12">
-          <Card className="shadow-md text-center">
-            <CardContent className="pt-10 pb-10 space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-success" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-xl font-bold text-foreground">Ügy sikeresen beküldve</h2>
-                <p className="text-muted-foreground text-sm">
-                  A rendszer ellenőrzi a feltöltött dokumentumokat. Az eredményről értesítést küldünk.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-sm text-muted-foreground">Ügy száma:</span>
-                  <span className="font-mono font-bold text-foreground">{caseNumber}</span>
-                </div>
-                <Badge className="bg-secondary text-secondary-foreground">Beküldve</Badge>
-              </div>
-              <Button onClick={() => window.location.href = "/seller"} className="mt-4">
-                Vissza a vezérlőpulthoz
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </SellerLayout>
-    );
-  }
+
+
 
   return (
     <SellerLayout>
