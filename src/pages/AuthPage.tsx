@@ -1,14 +1,154 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Shield, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { getDefaultRouteForRole, getSessionAndProfile } from "@/lib/auth";
 
 export default function AuthPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [magicEmail, setMagicEmail] = useState("");
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [isMagicLoading, setIsMagicLoading] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkSession = async () => {
+      try {
+        const { session, profile } = await getSessionAndProfile();
+
+        if (!mounted) return;
+
+        if (session && profile?.role) {
+          navigate(getDefaultRouteForRole(profile.role), { replace: true });
+          return;
+        }
+      } catch (error) {
+        console.error("AuthPage session check error:", error);
+      } finally {
+        if (mounted) {
+          setIsCheckingSession(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event !== "SIGNED_IN") return;
+
+      try {
+        const { profile } = await getSessionAndProfile();
+        navigate(getDefaultRouteForRole(profile?.role), { replace: true });
+      } catch (error) {
+        console.error("Auth state change error:", error);
+        navigate("/auth", { replace: true });
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      toast({
+        title: "Hiányzó adatok",
+        description: "Add meg az e-mail címet és a jelszót.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsPasswordLoading(true);
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) throw error;
+
+      const { profile } = await getSessionAndProfile();
+
+      toast({
+        title: "Sikeres bejelentkezés",
+        description: "Átirányítás folyamatban...",
+      });
+
+      navigate(getDefaultRouteForRole(profile?.role), { replace: true });
+    } catch (error: any) {
+      toast({
+        title: "Sikertelen bejelentkezés",
+        description: error?.message || "Ismeretlen hiba történt.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPasswordLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    if (!magicEmail.trim()) {
+      toast({
+        title: "Hiányzó e-mail cím",
+        description: "Add meg az e-mail címedet a mágikus linkhez.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsMagicLoading(true);
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: magicEmail.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Mágikus link elküldve",
+        description: "Nézd meg az e-mail fiókodat, és kattints a bejelentkező linkre.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "A link küldése sikertelen",
+        description: error?.message || "Ismeretlen hiba történt.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMagicLoading(false);
+    }
+  };
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">Betöltés...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -35,7 +175,7 @@ export default function AuthPage() {
           <h1 className="text-2xl font-bold text-foreground mb-2">Bejelentkezés a fiókjába</h1>
           <p className="text-muted-foreground mb-8">Adja meg hitelesítő adatait a platform eléréséhez</p>
 
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-5">
+          <form onSubmit={handlePasswordLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail cím</Label>
               <div className="relative">
@@ -47,6 +187,7 @@ export default function AuthPage() {
                   className="pl-10"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isPasswordLoading}
                 />
               </div>
             </div>
@@ -55,7 +196,7 @@ export default function AuthPage() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Jelszó</Label>
                 <a href="#" className="text-sm text-secondary hover:underline">
-                  Elfelejtett jelszó?
+                  Supabase Auth
                 </a>
               </div>
               <div className="relative">
@@ -67,12 +208,13 @@ export default function AuthPage() {
                   className="pl-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isPasswordLoading}
                 />
               </div>
             </div>
 
-            <Button type="submit" className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 py-5">
-              Bejelentkezés
+            <Button type="submit" className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 py-5" disabled={isPasswordLoading}>
+              {isPasswordLoading ? "Bejelentkezés..." : "Bejelentkezés"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </form>
@@ -93,9 +235,16 @@ export default function AuthPage() {
               Biztonságos linket küldünk az e-mail címére — jelszó nélkül.
             </p>
             <div className="flex gap-2">
-              <Input type="email" placeholder="pelda@email.com" className="flex-1" />
-              <Button variant="outline" size="sm">
-                Link küldése
+              <Input
+                type="email"
+                placeholder="pelda@email.com"
+                className="flex-1"
+                value={magicEmail}
+                onChange={(e) => setMagicEmail(e.target.value)}
+                disabled={isMagicLoading}
+              />
+              <Button variant="outline" size="sm" onClick={handleMagicLink} disabled={isMagicLoading}>
+                {isMagicLoading ? "Küldés..." : "Link küldése"}
               </Button>
             </div>
           </div>
