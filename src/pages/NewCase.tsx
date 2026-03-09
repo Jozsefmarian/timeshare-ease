@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import SellerLayout from "@/components/SellerLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Upload, CheckCircle2, FileText, X, File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const STEPS = [
   "Tulajdonos adatai",
@@ -37,10 +39,11 @@ interface UploadedFile {
 }
 
 export default function NewCase() {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-  const [caseNumber] = useState(() => `TS-${String(Math.floor(10000 + Math.random() * 90000))}`);
+  
 
   // Step 1
   const [ownerName, setOwnerName] = useState("");
@@ -120,42 +123,56 @@ export default function NewCase() {
     }
   };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    toast({ title: "Ügy sikeresen beküldve!", description: `Ügyszám: ${caseNumber}` });
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Sikertelen mentés", description: "Nincs bejelentkezett felhasználó.", variant: "destructive" });
+        return;
+      }
+
+      const { data: sellerProfile } = await (supabase as any)
+        .from("seller_profiles")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      const now = new Date().toISOString();
+      const generatedCaseNumber = `TS-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+
+      const { data, error } = await (supabase as any)
+        .from("cases")
+        .insert({
+          case_number: generatedCaseNumber,
+          seller_user_id: session.user.id,
+          seller_profile_id: sellerProfile?.id ?? null,
+          status: "draft",
+          status_group: "intake",
+          current_step: "seller_started",
+          priority: "normal",
+          source: "seller_portal",
+          created_at: now,
+          updated_at: now,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      toast({ title: "Ügy létrehozva", description: "Az új ügy sikeresen létrejött." });
+      navigate(`/seller/case/${data.id}`, { replace: true });
+    } catch (err: any) {
+      console.error("NewCase insert error:", err);
+      toast({ title: "Sikertelen mentés", description: err?.message || "Az ügy létrehozása nem sikerült.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  if (submitted) {
-    return (
-      <SellerLayout>
-        <div className="max-w-xl mx-auto py-12">
-          <Card className="shadow-md text-center">
-            <CardContent className="pt-10 pb-10 space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-success" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-xl font-bold text-foreground">Ügy sikeresen beküldve</h2>
-                <p className="text-muted-foreground text-sm">
-                  A rendszer ellenőrzi a feltöltött dokumentumokat. Az eredményről értesítést küldünk.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-sm text-muted-foreground">Ügy száma:</span>
-                  <span className="font-mono font-bold text-foreground">{caseNumber}</span>
-                </div>
-                <Badge className="bg-secondary text-secondary-foreground">Beküldve</Badge>
-              </div>
-              <Button onClick={() => window.location.href = "/seller"} className="mt-4">
-                Vissza a vezérlőpulthoz
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </SellerLayout>
-    );
-  }
+
+
 
   return (
     <SellerLayout>
@@ -360,8 +377,8 @@ export default function NewCase() {
               Következő <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={!canProceed()}>
-              Ügy beküldése <CheckCircle2 className="h-4 w-4 ml-1" />
+            <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
+              {isSubmitting ? "Mentés..." : "Ügy beküldése"} <CheckCircle2 className="h-4 w-4 ml-1" />
             </Button>
           )}
         </div>
