@@ -377,8 +377,8 @@ export default function NewCase() {
               Következő <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={!canProceed()}>
-              Ügy beküldése <CheckCircle2 className="h-4 w-4 ml-1" />
+            <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
+              {isSubmitting ? "Mentés..." : "Ügy beküldése"} <CheckCircle2 className="h-4 w-4 ml-1" />
             </Button>
           )}
         </div>
