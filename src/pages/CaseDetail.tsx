@@ -242,7 +242,7 @@ export default function CaseDetail() {
         setIsLoading(true);
         setLoadError(null);
 
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from("cases")
           .select(
             "id, case_number, status, status_group, current_step, priority, source, created_at, updated_at, submitted_at, closed_at",
@@ -265,7 +265,7 @@ export default function CaseDetail() {
 
   // Load document types
   const loadDocumentTypes = useCallback(async () => {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("document_types")
       .select("id, code, label, description, is_required, sort_order")
       .eq("is_active", true)
@@ -280,7 +280,7 @@ export default function CaseDetail() {
   const loadUploadedDocuments = useCallback(async () => {
     if (!caseId) return;
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("documents")
       .select("id, original_file_name, upload_status, review_status, ai_status, uploaded_at, document_type_id")
       .eq("case_id", caseId)
@@ -617,7 +617,7 @@ export default function CaseDetail() {
                   {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
                   {uploadSuccessMessage && <p className="text-sm text-success">{uploadSuccessMessage}</p>}
 
-                  <Button onClick={handleUpload} disabled={isUploading} className="w-full">
+                  <Button onClick={handleUpload} disabled={isUploading || !selectedDocumentTypeId || !selectedFile} className="w-full">
                     {isUploading ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
