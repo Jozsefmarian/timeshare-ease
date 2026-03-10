@@ -280,7 +280,7 @@ export default function CaseDetail() {
   const loadUploadedDocuments = useCallback(async () => {
     if (!caseId) return;
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("documents")
       .select("id, original_file_name, upload_status, review_status, ai_status, uploaded_at, document_type_id")
       .eq("case_id", caseId)
