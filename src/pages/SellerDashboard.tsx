@@ -60,8 +60,9 @@ export default function SellerDashboard() {
         }
 
         const { data, error: queryError } = await (supabase as any)
-          .from("cases")
+          ..from("cases")
           .select("id, case_number, status, status_group, current_step, priority, source, created_at, updated_at, submitted_at, closed_at")
+          .eq("seller_id", session.user.id)
           .order("created_at", { ascending: false });
 
         if (queryError) throw queryError;
