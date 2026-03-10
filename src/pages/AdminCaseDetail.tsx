@@ -7,82 +7,313 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft, Download, Eye, FileText, User, MapPin, Calendar,
-  CheckCircle2, AlertTriangle, XCircle, MessageSquare, RotateCcw,
-  ShieldCheck, ShieldAlert, ShieldX,
+  CheckCircle2, AlertTriangle, MessageSquare, RotateCcw,
+  ShieldCheck, ShieldAlert, ShieldX, Loader2,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const mockCase = {
-  id: "TS-10234",
-  status: "Ellenőrzés alatt",
-  minosite: "Zöld",
-  seller: {
-    name: "Kovács János",
-    address: "1052 Budapest, Váci utca 12.",
-    email: "kovacs.janos@email.hu",
-    phone: "+36 30 123 4567",
-  },
-  resort: {
-    name: "Marriott Vacation Club",
-    week: "32",
-    apartmentType: "2 hálószobás deluxe",
-    season: "Főszezon",
-    startDate: "2015-06-01",
-    endDate: "2045-06-01",
-    hasShare: true,
-    shareCount: 1,
-  },
-  documents: [
-    { name: "Személyi igazolvány", file: "szemelyi_kovacs.pdf", status: "Elfogadva" },
-    { name: "Tulajdoni lap", file: "tulajdoni_lap_32het.pdf", status: "Ellenőrzés alatt" },
-    { name: "Üdülési jog szerződés", file: "udulesi_szerzodes.pdf", status: "Feltöltve" },
-    { name: "Részvény igazolás", file: "reszveny_igazolas.pdf", status: "Probléma" },
-  ],
-  verification: {
-    fieldMatch: "8/10 mező egyezik",
-    keywords: "Nem találtunk korlátozó kulcsszavakat",
-    notes: "A tulajdoni lapon szereplő név eltér a személyi igazolványon lévőtől. Egyeztetés szükséges.",
-  },
+// ---------- Types ----------
+
+type AdminCaseRow = {
+  id: string;
+  case_number: string;
+  status: string;
+  classification: string | null;
+  internal_note: string | null;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string | null;
+  seller_user_id: string;
 };
 
-function getStatusClasses(status: string) {
-  switch (status) {
-    case "Beküldve": return "bg-muted text-muted-foreground";
-    case "Ellenőrzés alatt": return "bg-primary/10 text-primary";
-    case "Sárga ellenőrzés": return "bg-warning/10 text-warning";
-    case "Elutasítva": return "bg-destructive/10 text-destructive";
-    case "Jóváhagyva": return "bg-success/10 text-success";
-    case "Szerződés készül": return "bg-primary/10 text-primary";
-    case "Fizetésre vár": return "bg-warning/10 text-warning";
-    case "Lezárva": return "bg-muted text-muted-foreground";
-    default: return "bg-muted text-muted-foreground";
-  }
+type SellerProfile = {
+  full_name: string | null;
+  email: string;
+  phone: string | null;
+};
+
+type CaseDocument = {
+  id: string;
+  original_file_name: string | null;
+  file_name: string;
+  document_type: string;
+  document_type_id: string | null;
+  upload_status: string;
+  review_status: string;
+  ai_status: string;
+  uploaded_at: string | null;
+  storage_bucket: string;
+  storage_path: string | null;
+};
+
+type DocumentType = {
+  id: string;
+  code: string;
+  label: string;
+};
+
+// ---------- Helpers ----------
+
+async function updateDocumentReviewStatus(documentId: string, status: string) {
+  const { error } = await supabase
+    .from("documents")
+    .update({ review_status: status })
+    .eq("id", documentId);
+  if (error) throw error;
 }
 
-function getMinositeClasses(m: string) {
-  switch (m) {
-    case "Zöld": return "bg-success/10 text-success";
-    case "Sárga": return "bg-warning/10 text-warning";
-    case "Piros": return "bg-destructive/10 text-destructive";
-    default: return "bg-muted text-muted-foreground";
-  }
+async function updateCaseClassification(caseId: string, classification: string) {
+  const { error } = await supabase
+    .from("cases")
+    .update({ classification } as any)
+    .eq("id", caseId);
+  if (error) throw error;
 }
 
-function getDocStatusClasses(s: string) {
+async function updateCaseInternalNote(caseId: string, note: string) {
+  const { error } = await supabase
+    .from("cases")
+    .update({ internal_note: note } as any)
+    .eq("id", caseId);
+  if (error) throw error;
+}
+
+// ---------- Status helpers ----------
+
+function reviewStatusLabel(s: string): string {
   switch (s) {
-    case "Feltöltve": return "bg-muted text-muted-foreground";
-    case "Ellenőrzés alatt": return "bg-primary/10 text-primary";
-    case "Elfogadva": return "bg-success/10 text-success";
-    case "Probléma": return "bg-destructive/10 text-destructive";
+    case "pending": return "Függőben";
+    case "approved": return "Jóváhagyva";
+    case "rejected": return "Elutasítva";
+    case "needs_reupload": return "Újrafeltöltés szükséges";
+    default: return s;
+  }
+}
+
+function reviewStatusClasses(s: string): string {
+  switch (s) {
+    case "pending": return "bg-muted text-muted-foreground";
+    case "approved": return "bg-success/10 text-success";
+    case "rejected": return "bg-destructive/10 text-destructive";
+    case "needs_reupload": return "bg-warning/10 text-warning";
     default: return "bg-muted text-muted-foreground";
   }
 }
+
+function classificationLabel(c: string | null): string {
+  switch (c) {
+    case "green": return "Zöld";
+    case "yellow": return "Sárga";
+    case "red": return "Piros";
+    default: return "Nincs besorolva";
+  }
+}
+
+function classificationClasses(c: string | null): string {
+  switch (c) {
+    case "green": return "bg-success/10 text-success";
+    case "yellow": return "bg-warning/10 text-warning";
+    case "red": return "bg-destructive/10 text-destructive";
+    default: return "bg-muted text-muted-foreground";
+  }
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("hu-HU", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("hu-HU", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+// ---------- Component ----------
 
 export default function AdminCaseDetail() {
   const { caseId } = useParams();
   const navigate = useNavigate();
+
+  const [caseData, setCaseData] = useState<AdminCaseRow | null>(null);
+  const [seller, setSeller] = useState<SellerProfile | null>(null);
+  const [documents, setDocuments] = useState<CaseDocument[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [comment, setComment] = useState("");
-  const c = mockCase;
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [updatingDocId, setUpdatingDocId] = useState<string | null>(null);
+  const [updatingClassification, setUpdatingClassification] = useState(false);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
+
+  // Load case + seller
+  const loadCase = useCallback(async () => {
+    if (!caseId) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("cases")
+        .select("id, case_number, status, classification, internal_note, created_at, updated_at, submitted_at, seller_user_id" as any)
+        .eq("id", caseId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        setCaseData(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const row = data as any as AdminCaseRow;
+      setCaseData(row);
+      setComment(row.internal_note || "");
+
+      // Load seller profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, email, phone")
+        .eq("id", row.seller_user_id)
+        .maybeSingle();
+
+      setSeller(profile as SellerProfile | null);
+    } catch (err: any) {
+      toast.error("Az ügy betöltése nem sikerült.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [caseId]);
+
+  // Load documents
+  const loadDocuments = useCallback(async () => {
+    if (!caseId) return;
+    const { data } = await supabase
+      .from("documents")
+      .select("id, original_file_name, file_name, document_type, document_type_id, upload_status, review_status, ai_status, uploaded_at, storage_bucket, storage_path")
+      .eq("case_id", caseId)
+      .order("created_at", { ascending: false });
+
+    if (data) setDocuments(data as CaseDocument[]);
+  }, [caseId]);
+
+  // Load document types
+  const loadDocumentTypes = useCallback(async () => {
+    const { data } = await supabase
+      .from("document_types")
+      .select("id, code, label")
+      .eq("is_active", true);
+
+    if (data) setDocumentTypes(data as DocumentType[]);
+  }, []);
+
+  useEffect(() => {
+    if (caseId) {
+      loadCase();
+      loadDocuments();
+      loadDocumentTypes();
+    }
+  }, [caseId, loadCase, loadDocuments, loadDocumentTypes]);
+
+  // Actions
+  const handleDocReview = async (docId: string, status: string) => {
+    try {
+      setUpdatingDocId(docId);
+      await updateDocumentReviewStatus(docId, status);
+      toast.success(`Dokumentum státusz frissítve: ${reviewStatusLabel(status)}`);
+      await loadDocuments();
+    } catch {
+      toast.error("A dokumentum státusz frissítése nem sikerült.");
+    } finally {
+      setUpdatingDocId(null);
+    }
+  };
+
+  const handleClassification = async (classification: string) => {
+    if (!caseId) return;
+    try {
+      setUpdatingClassification(true);
+      await updateCaseClassification(caseId, classification);
+      toast.success(`Ügy besorolása: ${classificationLabel(classification)}`);
+      await loadCase();
+    } catch {
+      toast.error("A besorolás frissítése nem sikerült.");
+    } finally {
+      setUpdatingClassification(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!caseId) return;
+    try {
+      setIsSavingNote(true);
+      await updateCaseInternalNote(caseId, comment);
+      toast.success("Megjegyzés mentve.");
+      await loadCase();
+    } catch {
+      toast.error("A megjegyzés mentése nem sikerült.");
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const handleOpenDocument = async (doc: CaseDocument) => {
+    if (!doc.storage_bucket || !doc.storage_path) {
+      toast.error("A dokumentum tárolási útvonala hiányzik.");
+      return;
+    }
+    try {
+      setPreviewLoadingId(doc.id);
+      const { data, error } = await supabase.storage
+        .from(doc.storage_bucket)
+        .createSignedUrl(doc.storage_path, 60);
+      if (error) throw error;
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      toast.error("A dokumentum megnyitása nem sikerült.");
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  };
+
+  const getDocTypeLabel = (docTypeId: string | null): string => {
+    if (!docTypeId) return "—";
+    return documentTypes.find((t) => t.id === docTypeId)?.label || "Ismeretlen típus";
+  };
+
+  // ---------- Render ----------
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center p-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (!caseData) {
+    return (
+      <AdminLayout>
+        <div className="space-y-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/cases")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <Card className="shadow-sm">
+            <CardContent className="p-10 text-center">
+              <p className="text-muted-foreground">Az ügy nem található.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -94,181 +325,132 @@ export default function AdminCaseDetail() {
           </Button>
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">{caseId || c.id}</h1>
-              <Badge variant="outline" className={getStatusClasses(c.status)}>{c.status}</Badge>
-              <Badge variant="outline" className={getMinositeClasses(c.minosite)}>{c.minosite}</Badge>
+              <h1 className="text-2xl font-bold text-foreground">{caseData.case_number}</h1>
+              <Badge variant="outline" className="bg-muted text-muted-foreground">{caseData.status}</Badge>
+              <Badge variant="outline" className={classificationClasses(caseData.classification)}>
+                {classificationLabel(caseData.classification)}
+              </Badge>
             </div>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              {c.seller.name} · {c.resort.name} · {c.resort.week}. hét
-            </p>
+            {seller && (
+              <p className="text-muted-foreground text-sm mt-0.5">
+                {seller.full_name || seller.email}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left column - 2/3 */}
+          {/* Left column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Eladói adatok */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" />
-                  Eladói adatok
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <InfoRow label="Teljes név" value={c.seller.name} />
-                  <InfoRow label="Lakcím" value={c.seller.address} />
-                  <InfoRow label="Email" value={c.seller.email} />
-                  <InfoRow label="Telefonszám" value={c.seller.phone} />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Üdülési jog adatai */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  Üdülési jog adatai
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <InfoRow label="Üdülőhely" value={c.resort.name} />
-                  <InfoRow label="Hét száma" value={`${c.resort.week}. hét`} />
-                  <InfoRow label="Apartman típus" value={c.resort.apartmentType} />
-                  <InfoRow label="Szezon" value={c.resort.season} />
-                  <InfoRow label="Jogosultság kezdete" value={c.resort.startDate} />
-                  <InfoRow label="Jogosultság vége" value={c.resort.endDate} />
-                  <InfoRow label="Kapcsolódik részvény" value={c.resort.hasShare ? "Igen" : "Nem"} />
-                  <InfoRow label="Részvény darabszám" value={String(c.resort.shareCount)} />
-                </div>
-              </CardContent>
-            </Card>
+            {seller && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" />
+                    Eladói adatok
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <InfoRow label="Teljes név" value={seller.full_name || "—"} />
+                    <InfoRow label="Email" value={seller.email} />
+                    <InfoRow label="Telefonszám" value={seller.phone || "—"} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Dokumentumok */}
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
-                  Dokumentumok
+                  Dokumentumok ({documents.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {c.documents.map((doc) => (
-                    <div key={doc.file} className="flex items-center justify-between px-6 py-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">{doc.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{doc.file}</p>
+                {documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-6 py-4">Még nincs feltöltött dokumentum.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="px-6 py-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground">
+                                {getDocTypeLabel(doc.document_type_id)}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {doc.original_file_name || doc.file_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(doc.uploaded_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className={reviewStatusClasses(doc.review_status)}>
+                              {reviewStatusLabel(doc.review_status)}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={previewLoadingId === doc.id || !doc.storage_path}
+                              onClick={() => handleOpenDocument(doc)}
+                            >
+                              {previewLoadingId === doc.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Document review actions */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-success border-success/30 hover:bg-success/10"
+                            disabled={updatingDocId === doc.id || doc.review_status === "approved"}
+                            onClick={() => handleDocReview(doc.id, "approved")}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            Jóváhagy
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                            disabled={updatingDocId === doc.id || doc.review_status === "rejected"}
+                            onClick={() => handleDocReview(doc.id, "rejected")}
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                            Elutasít
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-warning border-warning/30 hover:bg-warning/10"
+                            disabled={updatingDocId === doc.id || doc.review_status === "needs_reupload"}
+                            onClick={() => handleDocReview(doc.id, "needs_reupload")}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                            Újrafeltöltést kér
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <Badge variant="outline" className={getDocStatusClasses(doc.status)}>{doc.status}</Badge>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Ellenőrzési eredmény */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Ellenőrzési eredmény
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                    <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Mezőegyezés</p>
-                      <p className="text-sm text-muted-foreground">{c.verification.fieldMatch}</p>
-                    </div>
+                    ))}
                   </div>
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                    <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Korlátozó kulcsszavak vizsgálata</p>
-                      <p className="text-sm text-muted-foreground">{c.verification.keywords}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-warning/5 border border-warning/20">
-                    <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Megjegyzések</p>
-                      <p className="text-sm text-muted-foreground">{c.verification.notes}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right column - 1/3 */}
-          <div className="space-y-6">
-            {/* Admin műveletek */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Admin műveletek</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full justify-start gap-2 bg-success hover:bg-success/90 text-success-foreground">
-                  <ShieldCheck className="h-4 w-4" />
-                  Zöldre állítás
-                </Button>
-                <Button className="w-full justify-start gap-2 bg-warning hover:bg-warning/90 text-warning-foreground">
-                  <ShieldAlert className="h-4 w-4" />
-                  Sárgára állítás
-                </Button>
-                <Button className="w-full justify-start gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                  <ShieldX className="h-4 w-4" />
-                  Pirosra állítás
-                </Button>
-
-                <Separator />
-
-                <Button variant="outline" className="w-full justify-start gap-2">
-                  <RotateCcw className="h-4 w-4" />
-                  Javítás kérése
-                </Button>
+                )}
               </CardContent>
             </Card>
 
-            {/* Megjegyzés */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  Megjegyzés hozzáadása
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Textarea
-                  placeholder="Írja be a megjegyzést..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={4}
-                />
-                <Button className="w-full" disabled={!comment.trim()}>
-                  Megjegyzés mentése
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Gyors infó */}
+            {/* Időpontok */}
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -277,11 +459,79 @@ export default function AdminCaseDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <InfoRow label="Beküldés" value="2026-02-28" />
-                  <InfoRow label="Utolsó módosítás" value="2026-03-04" />
-                  <InfoRow label="Ellenőrzés kezdete" value="2026-03-01" />
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <InfoRow label="Létrehozva" value={formatDate(caseData.created_at)} />
+                  <InfoRow label="Utolsó módosítás" value={formatDate(caseData.updated_at)} />
+                  <InfoRow label="Beküldve" value={formatDate(caseData.submitted_at)} />
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-6">
+            {/* Besorolás */}
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Ügy besorolása</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  className="w-full justify-start gap-2 bg-success hover:bg-success/90 text-success-foreground"
+                  disabled={updatingClassification || caseData.classification === "green"}
+                  onClick={() => handleClassification("green")}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Zöld
+                </Button>
+                <Button
+                  className="w-full justify-start gap-2 bg-warning hover:bg-warning/90 text-warning-foreground"
+                  disabled={updatingClassification || caseData.classification === "yellow"}
+                  onClick={() => handleClassification("yellow")}
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  Sárga
+                </Button>
+                <Button
+                  className="w-full justify-start gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  disabled={updatingClassification || caseData.classification === "red"}
+                  onClick={() => handleClassification("red")}
+                >
+                  <ShieldX className="h-4 w-4" />
+                  Piros
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Belső megjegyzés */}
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  Belső admin megjegyzés
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Textarea
+                  placeholder="Írja be a belső megjegyzést..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={4}
+                />
+                <Button
+                  className="w-full"
+                  disabled={isSavingNote}
+                  onClick={handleSaveNote}
+                >
+                  {isSavingNote ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Mentés...
+                    </>
+                  ) : (
+                    "Megjegyzés mentése"
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </div>
