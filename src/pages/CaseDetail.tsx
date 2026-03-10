@@ -62,6 +62,7 @@ type UploadedDocument = {
   ai_status: string;
   uploaded_at: string | null;
   document_type_id: string | null;
+  created_at?: string;
 };
 
 // ---------- Status label helpers ----------
