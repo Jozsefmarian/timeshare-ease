@@ -19,12 +19,7 @@ import { getInitials, getSessionAndProfile, type AppProfile } from "@/lib/auth";
 
 const sellerNavItems = [
   { title: "Vezérlőpult", icon: LayoutDashboard, href: "/seller" },
-  { title: "Ügyeim", icon: FolderOpen, href: "/seller/cases" },
   { title: "Új ügy indítása", icon: PlusCircle, href: "/seller/new-case" },
-  { title: "Dokumentumok", icon: FileText, href: "/seller/documents" },
-  { title: "Szerződések", icon: FileSignature, href: "/seller/contracts" },
-  { title: "Fizetések", icon: CreditCard, href: "/seller/payments" },
-  { title: "Profil", icon: User, href: "/seller/profile" },
 ];
 
 export default function SellerLayout({ children }: { children: ReactNode }) {
