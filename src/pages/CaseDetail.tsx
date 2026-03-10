@@ -265,7 +265,7 @@ export default function CaseDetail() {
 
   // Load document types
   const loadDocumentTypes = useCallback(async () => {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("document_types")
       .select("id, code, label, description, is_required, sort_order")
       .eq("is_active", true)
