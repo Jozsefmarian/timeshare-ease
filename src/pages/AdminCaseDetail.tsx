@@ -213,6 +213,7 @@ export default function AdminCaseDetail() {
   const [seller, setSeller] = useState<SellerProfile | null>(null);
   const [documents, setDocuments] = useState<CaseDocument[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [validationResults, setValidationResults] = useState<AiValidationResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
