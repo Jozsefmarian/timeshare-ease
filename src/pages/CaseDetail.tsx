@@ -341,6 +341,28 @@ export default function CaseDetail() {
     }
   };
 
+  // Open document via signed URL
+  const handleOpenDocument = async (doc: UploadedDocument) => {
+    if (!doc.storage_bucket || !doc.storage_path) {
+      setUploadError("A dokumentum tárolási útvonala hiányzik.");
+      return;
+    }
+    try {
+      setPreviewLoadingId(doc.id);
+      const { data, error } = await supabase.storage
+        .from(doc.storage_bucket)
+        .createSignedUrl(doc.storage_path, 60);
+      if (error) throw error;
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || "A dokumentum megnyitása nem sikerült.");
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  };
+
   // Helpers
   const getDocTypeLabel = (docTypeId: string | null): string => {
     if (!docTypeId) return "—";
