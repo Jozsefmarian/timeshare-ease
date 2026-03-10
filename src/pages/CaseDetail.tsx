@@ -242,7 +242,7 @@ export default function CaseDetail() {
         setIsLoading(true);
         setLoadError(null);
 
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from("cases")
           .select(
             "id, case_number, status, status_group, current_step, priority, source, created_at, updated_at, submitted_at, closed_at",
