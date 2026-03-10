@@ -60,7 +60,7 @@ type UploadedDocument = {
   upload_status: string;
   review_status: string;
   ai_status: string;
-  uploaded_at: null;
+  uploaded_at: string | null;
   document_type_id: string | null;
 };
 
