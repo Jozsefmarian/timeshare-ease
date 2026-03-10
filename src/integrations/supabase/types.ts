@@ -109,10 +109,12 @@ export type Database = {
       cases: {
         Row: {
           case_number: string
+          classification: string | null
           closed_at: string | null
           created_at: string
           current_step: string | null
           id: string
+          internal_note: string | null
           priority: string | null
           seller_profile_id: string | null
           seller_user_id: string
@@ -124,10 +126,12 @@ export type Database = {
         }
         Insert: {
           case_number: string
+          classification?: string | null
           closed_at?: string | null
           created_at?: string
           current_step?: string | null
           id?: string
+          internal_note?: string | null
           priority?: string | null
           seller_profile_id?: string | null
           seller_user_id: string
@@ -139,10 +143,12 @@ export type Database = {
         }
         Update: {
           case_number?: string
+          classification?: string | null
           closed_at?: string | null
           created_at?: string
           current_step?: string | null
           id?: string
+          internal_note?: string | null
           priority?: string | null
           seller_profile_id?: string | null
           seller_user_id?: string
