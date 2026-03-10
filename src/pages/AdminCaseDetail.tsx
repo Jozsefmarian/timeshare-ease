@@ -48,6 +48,15 @@ type CaseDocument = {
   storage_path: string | null;
 };
 
+type AiValidationResult = {
+  id: string;
+  document_id: string;
+  validation_status: string;
+  field_match_score: number | null;
+  keyword_flags: Record<string, unknown> | null;
+  notes: string | null;
+};
+
 type DocumentType = {
   id: string;
   code: string;
