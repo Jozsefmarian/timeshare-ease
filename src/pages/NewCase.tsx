@@ -13,13 +13,9 @@ import { ArrowLeft, ArrowRight, Upload, CheckCircle2, FileText, X, File } from "
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+const supabaseAny: any = supabase;
 
-const STEPS = [
-  "Tulajdonos adatai",
-  "Üdülési jog adatai",
-  "Nyilatkozatok",
-  "Dokumentum feltöltés",
-];
+const STEPS = ["Tulajdonos adatai", "Üdülési jog adatai", "Nyilatkozatok", "Dokumentum feltöltés"];
 
 const RESORTS = [
   "Marriott Vacation Club",
@@ -43,7 +39,6 @@ export default function NewCase() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(0);
-  
 
   // Step 1
   const [ownerName, setOwnerName] = useState("");
@@ -92,7 +87,7 @@ export default function NewCase() {
           clearInterval(interval);
         }
         setFiles((prev) =>
-          prev.map((f) => (f.name === file.name && f.category === file.category ? { ...f, progress } : f))
+          prev.map((f) => (f.name === file.name && f.category === file.category ? { ...f, progress } : f)),
         );
       }, 300);
     });
@@ -127,13 +122,15 @@ export default function NewCase() {
     try {
       setIsSubmitting(true);
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabaseAny.auth.getSession();
       if (!session) {
         toast({ title: "Sikertelen mentés", description: "Nincs bejelentkezett felhasználó.", variant: "destructive" });
         return;
       }
 
-      const { data: sellerProfile } = await (supabase as any)
+      const { data: sellerProfile } = await supabaseAny
         .from("seller_profiles")
         .select("id")
         .eq("user_id", session.user.id)
@@ -142,11 +139,11 @@ export default function NewCase() {
       const now = new Date().toISOString();
       const generatedCaseNumber = `TS-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabaseAny
         .from("cases")
         .insert({
           case_number: generatedCaseNumber,
-          seller_user_id: session.user.id,
+          seller_id: session.user.id,
           seller_profile_id: sellerProfile?.id ?? null,
           status: "draft",
           status_group: "intake",
@@ -161,18 +158,19 @@ export default function NewCase() {
 
       if (error) throw error;
 
-      toast({ title: "Ügy létrehozva", description: "Az új ügy sikeresen létrejött." });
+      toast({ title: "Ügy létrehozva", description: "Az ügy létrejött. A folytatás az ügy adatlapján történik." });
       navigate(`/seller/case/${data.id}`, { replace: true });
     } catch (err: any) {
       console.error("NewCase insert error:", err);
-      toast({ title: "Sikertelen mentés", description: err?.message || "Az ügy létrehozása nem sikerült.", variant: "destructive" });
+      toast({
+        title: "Sikertelen mentés",
+        description: err?.message || "Az ügy létrehozása nem sikerült.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
-
-
-
 
   return (
     <SellerLayout>
@@ -188,10 +186,7 @@ export default function NewCase() {
             <div key={label} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="flex items-center w-full">
                 <div
-                  className={cn(
-                    "h-2 flex-1 rounded-full transition-colors",
-                    i <= step ? "bg-primary" : "bg-muted"
-                  )}
+                  className={cn("h-2 flex-1 rounded-full transition-colors", i <= step ? "bg-primary" : "bg-muted")}
                 />
               </div>
               <span className={cn("text-[11px] font-medium", i <= step ? "text-primary" : "text-muted-foreground")}>
@@ -217,20 +212,42 @@ export default function NewCase() {
               <div className="grid gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="ownerName">Teljes név</Label>
-                  <Input id="ownerName" placeholder="Kovács János" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+                  <Input
+                    id="ownerName"
+                    placeholder="Kovács János"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ownerAddress">Lakcím</Label>
-                  <Input id="ownerAddress" placeholder="1011 Budapest, Fő utca 1." value={ownerAddress} onChange={(e) => setOwnerAddress(e.target.value)} />
+                  <Input
+                    id="ownerAddress"
+                    placeholder="1011 Budapest, Fő utca 1."
+                    value={ownerAddress}
+                    onChange={(e) => setOwnerAddress(e.target.value)}
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="ownerEmail">E-mail cím</Label>
-                    <Input id="ownerEmail" type="email" placeholder="kovacs@example.com" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} />
+                    <Input
+                      id="ownerEmail"
+                      type="email"
+                      placeholder="kovacs@example.com"
+                      value={ownerEmail}
+                      onChange={(e) => setOwnerEmail(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="ownerPhone">Telefonszám</Label>
-                    <Input id="ownerPhone" type="tel" placeholder="+36 30 123 4567" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} />
+                    <Input
+                      id="ownerPhone"
+                      type="tel"
+                      placeholder="+36 30 123 4567"
+                      value={ownerPhone}
+                      onChange={(e) => setOwnerPhone(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
@@ -241,10 +258,14 @@ export default function NewCase() {
                 <div className="space-y-1.5">
                   <Label>Üdülőhely neve</Label>
                   <Select value={resort} onValueChange={setResort}>
-                    <SelectTrigger><SelectValue placeholder="Válasszon üdülőhelyet" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Válasszon üdülőhelyet" />
+                    </SelectTrigger>
                     <SelectContent>
                       {RESORTS.map((r) => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                        <SelectItem key={r} value={r}>
+                          {r}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -252,31 +273,67 @@ export default function NewCase() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="weekNumber">Hét száma (1–52)</Label>
-                    <Input id="weekNumber" type="number" min={1} max={52} placeholder="pl. 32" value={weekNumber} onChange={(e) => setWeekNumber(e.target.value)} />
+                    <Input
+                      id="weekNumber"
+                      type="number"
+                      min={1}
+                      max={52}
+                      placeholder="pl. 32"
+                      value={weekNumber}
+                      onChange={(e) => setWeekNumber(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="apartmentType">Apartman típus</Label>
-                    <Input id="apartmentType" placeholder="pl. Studio, 1 hálós" value={apartmentType} onChange={(e) => setApartmentType(e.target.value)} />
+                    <Input
+                      id="apartmentType"
+                      placeholder="pl. Studio, 1 hálós"
+                      value={apartmentType}
+                      onChange={(e) => setApartmentType(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="seasonName">Szezon megnevezése</Label>
-                  <Input id="seasonName" placeholder="pl. Főszezon, Utószezon" value={seasonName} onChange={(e) => setSeasonName(e.target.value)} />
+                  <Input
+                    id="seasonName"
+                    placeholder="pl. Főszezon, Utószezon"
+                    value={seasonName}
+                    onChange={(e) => setSeasonName(e.target.value)}
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="rightsStart">Jogosultság kezdete (év)</Label>
-                    <Input id="rightsStart" type="number" min={1990} max={2050} placeholder="pl. 2005" value={rightsStart} onChange={(e) => setRightsStart(e.target.value)} />
+                    <Input
+                      id="rightsStart"
+                      type="number"
+                      min={1990}
+                      max={2050}
+                      placeholder="pl. 2005"
+                      value={rightsStart}
+                      onChange={(e) => setRightsStart(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="rightsEnd">Jogosultság vége (év)</Label>
-                    <Input id="rightsEnd" type="number" min={1990} max={2099} placeholder="pl. 2035" value={rightsEnd} onChange={(e) => setRightsEnd(e.target.value)} />
+                    <Input
+                      id="rightsEnd"
+                      type="number"
+                      min={1990}
+                      max={2099}
+                      placeholder="pl. 2035"
+                      value={rightsEnd}
+                      onChange={(e) => setRightsEnd(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Kapcsolódik részvény?</Label>
                   <Select value={hasShares} onValueChange={setHasShares}>
-                    <SelectTrigger><SelectValue placeholder="Válasszon" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Válasszon" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="yes">Igen</SelectItem>
                       <SelectItem value="no">Nem</SelectItem>
@@ -286,7 +343,14 @@ export default function NewCase() {
                 {hasShares === "yes" && (
                   <div className="space-y-1.5">
                     <Label htmlFor="shareCount">Részvény darabszám</Label>
-                    <Input id="shareCount" type="number" min={1} placeholder="pl. 1" value={shareCount} onChange={(e) => setShareCount(e.target.value)} />
+                    <Input
+                      id="shareCount"
+                      type="number"
+                      min={1}
+                      placeholder="pl. 1"
+                      value={shareCount}
+                      onChange={(e) => setShareCount(e.target.value)}
+                    />
                   </div>
                 )}
               </div>
@@ -295,11 +359,25 @@ export default function NewCase() {
             {step === 2 && (
               <div className="space-y-5">
                 {[
-                  { id: "decl1", checked: decl1, set: setDecl1, text: "Kijelentem, hogy az üdülési jog jogos tulajdonosa vagyok." },
+                  {
+                    id: "decl1",
+                    checked: decl1,
+                    set: setDecl1,
+                    text: "Kijelentem, hogy az üdülési jog jogos tulajdonosa vagyok.",
+                  },
                   { id: "decl2", checked: decl2, set: setDecl2, text: "A megadott adatok a valóságnak megfelelnek." },
-                  { id: "decl3", checked: decl3, set: setDecl3, text: "Tudomásul veszem, hogy a rendszer automatikusan ellenőrzi a feltöltött dokumentumokat." },
+                  {
+                    id: "decl3",
+                    checked: decl3,
+                    set: setDecl3,
+                    text: "Tudomásul veszem, hogy a rendszer automatikusan ellenőrzi a feltöltött dokumentumokat.",
+                  },
                 ].map((d) => (
-                  <label key={d.id} htmlFor={d.id} className="flex items-start gap-3 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors cursor-pointer">
+                  <label
+                    key={d.id}
+                    htmlFor={d.id}
+                    className="flex items-start gap-3 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                  >
                     <Checkbox id={d.id} checked={d.checked} onCheckedChange={(v) => d.set(!!v)} className="mt-0.5" />
                     <span className="text-sm text-foreground leading-relaxed">{d.text}</span>
                   </label>
@@ -319,18 +397,29 @@ export default function NewCase() {
                     <div className="flex items-center gap-2">
                       <Label className="text-sm">{doc.label}</Label>
                       {doc.required ? (
-                        <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">Kötelező</Badge>
+                        <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">
+                          Kötelező
+                        </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px]">Opcionális</Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          Opcionális
+                        </Badge>
                       )}
                     </div>
                     <div
-                      onDragOver={(e) => { e.preventDefault(); setDragOver(doc.key); }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOver(doc.key);
+                      }}
                       onDragLeave={() => setDragOver(null)}
-                      onDrop={(e) => { e.preventDefault(); setDragOver(null); handleFileDrop(doc.key, e.dataTransfer.files); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOver(null);
+                        handleFileDrop(doc.key, e.dataTransfer.files);
+                      }}
                       className={cn(
                         "border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer",
-                        dragOver === doc.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                        dragOver === doc.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
                       )}
                       onClick={() => {
                         const input = document.createElement("input");
@@ -345,7 +434,10 @@ export default function NewCase() {
                       <p className="text-xs text-muted-foreground">Húzza ide a fájlt vagy kattintson a feltöltéshez</p>
                     </div>
                     {filesForCategory(doc.key).map((f) => (
-                      <div key={f.name} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 border border-border">
+                      <div
+                        key={f.name}
+                        className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 border border-border"
+                      >
                         <File className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-foreground truncate">{f.name}</p>
@@ -355,7 +447,10 @@ export default function NewCase() {
                             <p className="text-[10px] text-success">Feltöltve</p>
                           )}
                         </div>
-                        <button onClick={() => removeFile(f.name, f.category)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <button
+                          onClick={() => removeFile(f.name, f.category)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -378,7 +473,7 @@ export default function NewCase() {
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
-              {isSubmitting ? "Mentés..." : "Ügy beküldése"} <CheckCircle2 className="h-4 w-4 ml-1" />
+              {isSubmitting ? "Mentés..." : "Ügy létrehozása"} <CheckCircle2 className="h-4 w-4 ml-1" />
             </Button>
           )}
         </div>
