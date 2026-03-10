@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCaseDocument } from "@/lib/documentUpload";
 
+const supabaseAny: any = supabase;
+
 // ---------- Local types ----------
 
 type CaseRow = {
@@ -254,28 +256,28 @@ export default function CaseDetail() {
 
   // Load case
   useEffect(() => {
-    const loadCase = async () => {
-      if (!caseId) {
-        setLoadError("Hiányzó ügyazonosító.");
-        setIsLoading(false);
-        return;
-      }
+    const {
+  data: { session },
+} = await supabaseAny.auth.getSession();
 
-      try {
-        setIsLoading(true);
-        setLoadError(null);
+if (!session) {
+  setLoadError("Nincs bejelentkezett felhasználó.");
+  setIsLoading(false);
+  return;
+}
 
-        const { data, error } = await supabase
-          .from("cases")
-          .select(
-            "id, case_number, status, status_group, current_step, priority, source, created_at, updated_at, submitted_at, closed_at",
-          )
-          .eq("id", caseId)
-          .maybeSingle();
+const { data, error } = await supabaseAny
+  .from("cases")
+  .select(
+    "id, case_number, status, status_group, current_step, priority, source, created_at, updated_at, submitted_at, closed_at",
+  )
+  .eq("id", caseId)
+  .eq("seller_id", session.user.id)
+  .maybeSingle();
 
-        if (error) throw error;
+if (error) throw error;
 
-        setCaseData((data as CaseRow | null) ?? null);
+setCaseData((data as CaseRow | null) ?? null);
       } catch (error: any) {
         setLoadError(error?.message || "Az ügy betöltése nem sikerült.");
       } finally {
@@ -288,11 +290,11 @@ export default function CaseDetail() {
 
   // Load document types
   const loadDocumentTypes = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("document_types")
-      .select("id, code, label, description, is_required, sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const { data, error } = await supabaseAny
+  .from("document_types")
+  .select("id, code, label, description, is_required, sort_order")
+  .eq("is_active", true)
+  .order("sort_order", { ascending: true });
 
     if (!error && data) {
       setDocumentTypes(data as DocumentType[]);
@@ -303,13 +305,13 @@ export default function CaseDetail() {
   const loadUploadedDocuments = useCallback(async () => {
     if (!caseId) return;
 
-    const { data, error } = await supabase
-      .from("documents")
-      .select(
-        "id, original_file_name, upload_status, review_status, ai_status, uploaded_at, document_type_id, storage_bucket, storage_path",
-      )
-      .eq("case_id", caseId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabaseAny
+  .from("documents")
+  .select(
+    "id, original_file_name, upload_status, review_status, ai_status, uploaded_at, document_type_id, storage_bucket, storage_path",
+  )
+  .eq("case_id", caseId)
+  .order("created_at", { ascending: false });
 
     if (!error && data) {
       setUploadedDocuments(data as UploadedDocument[]);
@@ -539,11 +541,11 @@ export default function CaseDetail() {
       <SellerLayout>
         <div className="space-y-6">
           <Link
-            to="/seller"
+            to="/seller/cases"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Vissza a vezérlőpultra
+            Vissza az ügyeimhez
           </Link>
           <Card className="shadow-sm">
             <CardContent className="p-10 text-center">
@@ -560,11 +562,11 @@ export default function CaseDetail() {
       <SellerLayout>
         <div className="space-y-6">
           <Link
-            to="/seller"
+            to="/seller/cases"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Vissza a vezérlőpultra
+            Vissza az ügyeimhez
           </Link>
           <Card className="shadow-sm">
             <CardContent className="p-10 text-center space-y-2">
@@ -582,11 +584,11 @@ export default function CaseDetail() {
       <SellerLayout>
         <div className="space-y-6">
           <Link
-            to="/seller"
+            to="/seller/cases"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Vissza a vezérlőpultra
+            Vissza az ügyeimhez
           </Link>
           <Card className="shadow-sm">
             <CardContent className="p-10 text-center space-y-2">
@@ -607,11 +609,11 @@ export default function CaseDetail() {
     <SellerLayout>
       <div className="space-y-6">
         <Link
-          to="/seller"
+          to="/seller/cases"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Vissza a vezérlőpultra
+          Vissza az ügyeimhez
         </Link>
 
         {/* Header Card */}
@@ -955,7 +957,7 @@ export default function CaseDetail() {
                   <p className="text-sm text-destructive mt-2">Ez az ügy megszakított státuszban van.</p>
                 )}
                 <Button variant="outline" className="mt-4" asChild>
-                  <Link to="/seller">Vissza a vezérlőpultra</Link>
+                  <Link to="/seller/cases">Vissza az ügyeimhez</Link>
                 </Button>
               </CardContent>
             </Card>
