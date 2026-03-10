@@ -396,7 +396,75 @@ export default function CaseDetail() {
     }
   };
 
-  // Helpers
+  // Contract handlers
+  const handleOpenContract = async () => {
+    if (!contract?.generated_storage_bucket || !contract?.generated_storage_path) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from(contract.generated_storage_bucket)
+        .createSignedUrl(contract.generated_storage_path, 60);
+      if (error) throw error;
+      if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      setSignedUploadErr("A szerződés megnyitása nem sikerült.");
+    }
+  };
+
+  const handleUploadSigned = async () => {
+    setSignedUploadMsg(null);
+    setSignedUploadErr(null);
+    if (!signedFile || !caseId || !contract) {
+      setSignedUploadErr("Kérjük, válassz ki egy fájlt.");
+      return;
+    }
+    try {
+      setIsUploadingSigned(true);
+      const ts = Date.now();
+      const storagePath = `cases/${caseId}/contracts/signed/${ts}-${signedFile.name}`;
+      const bucket = "signed-contracts";
+
+      const { error: uploadErr } = await supabase.storage
+        .from(bucket)
+        .upload(storagePath, signedFile, {
+          contentType: signedFile.type || "application/octet-stream",
+          upsert: false,
+        });
+      if (uploadErr) throw uploadErr;
+
+      const { error: updateErr } = await (supabase as any)
+        .from("contracts")
+        .update({
+          signed_storage_bucket: bucket,
+          signed_storage_path: storagePath,
+          signed_file_name: signedFile.name,
+          signed_uploaded_at: new Date().toISOString(),
+          status: "signed_uploaded",
+        })
+        .eq("id", contract.id);
+      if (updateErr) throw updateErr;
+
+      setSignedUploadMsg("Az aláírt szerződés sikeresen feltöltve.");
+      setSignedFile(null);
+      if (signedFileRef.current) signedFileRef.current.value = "";
+      await loadContract();
+    } catch (err: any) {
+      setSignedUploadErr(err?.message || "A feltöltés nem sikerült.");
+    } finally {
+      setIsUploadingSigned(false);
+    }
+  };
+
+  const contractStatusLabel = (s: string): string => {
+    switch (s) {
+      case "pending_generation": return "Generálásra vár";
+      case "generated": return "Generálva";
+      case "awaiting_signature": return "Aláírásra vár";
+      case "signed_uploaded": return "Aláírt példány feltöltve";
+      case "verified": return "Ellenőrizve";
+      default: return s;
+    }
+  };
+
   const getDocTypeLabel = (docTypeId: string | null): string => {
     if (!docTypeId) return "—";
     const dt = documentTypes.find((t) => t.id === docTypeId);
