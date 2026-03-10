@@ -36,7 +36,7 @@ const App = () => (
 
           {/* Seller */}
           <Route
-            path="/app/dashboard"
+            path="/seller"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <SellerDashboard />
@@ -44,7 +44,7 @@ const App = () => (
             }
           />
           <Route
-            path="/app/cases"
+            path="/seller/cases"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <SellerCases />
@@ -52,7 +52,7 @@ const App = () => (
             }
           />
           <Route
-            path="/app/cases/:id"
+            path="/seller/case/:caseId"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <CaseDetail />
@@ -60,7 +60,7 @@ const App = () => (
             }
           />
           <Route
-            path="/app/cases/:id/upload"
+            path="/seller/case/:caseId/upload"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <NewCase />
@@ -68,7 +68,7 @@ const App = () => (
             }
           />
           <Route
-            path="/app/cases/:id/contracts"
+            path="/seller/case/:caseId/contracts"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <SellerCaseContracts />
@@ -76,7 +76,7 @@ const App = () => (
             }
           />
           <Route
-            path="/app/cases/:id/payment"
+            path="/seller/case/:caseId/payment"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <SellerCasePayment />
