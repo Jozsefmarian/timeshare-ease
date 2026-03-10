@@ -716,6 +716,75 @@ export default function AdminCaseDetail() {
 
           {/* Right column */}
           <div className="space-y-6">
+            {/* Szerződés */}
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Szerződés
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {contract ? (
+                  <>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Státusz:</span>
+                        <Badge variant="outline" className={contractStatusClasses(contract.status)}>
+                          {contractStatusLabel(contract.status)}
+                        </Badge>
+                      </div>
+                      {contract.generated_file_name && (
+                        <p className="text-xs text-muted-foreground">
+                          Fájl: {contract.generated_file_name}
+                        </p>
+                      )}
+                      {contract.generated_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Generálva: {formatDateTime(contract.generated_at)}
+                        </p>
+                      )}
+                      {contract.signed_uploaded_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Aláírt feltöltve: {formatDateTime(contract.signed_uploaded_at)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {contract.generated_storage_path && (
+                        <Button variant="outline" size="sm" onClick={handleOpenContract}>
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Generált szerződés megnyitása
+                        </Button>
+                      )}
+                      {contract.signed_storage_path && (
+                        <Button variant="outline" size="sm" onClick={handleOpenSignedContract}>
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Aláírt szerződés megnyitása
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Még nincs generált szerződés.</p>
+                )}
+                <Button
+                  className="w-full"
+                  disabled={isGeneratingContract}
+                  onClick={handleGenerateContract}
+                >
+                  {isGeneratingContract ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Generálás...
+                    </>
+                  ) : (
+                    "Adásvételi szerződés generálása"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Besorolás */}
             <Card className="shadow-sm">
               <CardHeader className="pb-3">
