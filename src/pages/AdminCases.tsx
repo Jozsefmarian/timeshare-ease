@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -20,88 +21,188 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Filter, X } from "lucide-react";
+import { Search, X, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+// ---------- Types ----------
+
+type CaseRow = {
+  id: string;
+  case_number: string;
+  status: string;
+  classification: string | null;
+  created_at: string;
+  seller_name: string | null;
+  resort_name: string | null;
+  week_number: number | null;
+};
+
+// ---------- Constants ----------
 
 const statusOptions = [
-  "Beküldve",
-  "Ellenőrzés alatt",
-  "Sárga ellenőrzés",
-  "Elutasítva",
-  "Jóváhagyva",
-  "Szerződés készül",
-  "Fizetésre vár",
-  "Lezárva",
+  "draft",
+  "submitted",
+  "documents_uploaded",
+  "ai_check",
+  "under_review",
+  "contract_pending",
+  "payment_pending",
+  "closed",
 ];
 
-const minositeOptions = ["Zöld", "Sárga", "Piros"];
+const statusLabels: Record<string, string> = {
+  draft: "Piszkozat",
+  submitted: "Beküldve",
+  documents_uploaded: "Dokumentumok feltöltve",
+  ai_check: "AI ellenőrzés",
+  under_review: "Ellenőrzés alatt",
+  contract_pending: "Szerződés készül",
+  payment_pending: "Fizetésre vár",
+  closed: "Lezárva",
+};
 
-const resortOptions = [
-  "Marriott Vacation Club",
-  "Hilton Grand Vacations",
-  "Wyndham Destinations",
-  "Hyatt Residence Club",
-  "Club Dobogómajor",
-];
+const classificationLabels: Record<string, string> = {
+  green: "Zöld",
+  yellow: "Sárga",
+  red: "Piros",
+};
 
-const mockCases = [
-  { id: "TS-10234", seller: "Kovács János", resort: "Marriott Vacation Club", week: "32", status: "Ellenőrzés alatt", minosite: "Zöld", date: "2026-02-28" },
-  { id: "TS-10233", seller: "Szabó Mária", resort: "Hilton Grand Vacations", week: "14", status: "Beküldve", minosite: "Zöld", date: "2026-02-27" },
-  { id: "TS-10232", seller: "Nagy Richárd", resort: "Wyndham Destinations", week: "48", status: "Jóváhagyva", minosite: "Zöld", date: "2026-02-25" },
-  { id: "TS-10231", seller: "Tóth Katalin", resort: "Hyatt Residence Club", week: "8", status: "Sárga ellenőrzés", minosite: "Sárga", date: "2026-02-24" },
-  { id: "TS-10230", seller: "Kiss András", resort: "Club Dobogómajor", week: "22", status: "Elutasítva", minosite: "Piros", date: "2026-02-23" },
-  { id: "TS-10229", seller: "Varga Éva", resort: "Marriott Vacation Club", week: "51", status: "Szerződés készül", minosite: "Zöld", date: "2026-02-22" },
-  { id: "TS-10228", seller: "Horváth Péter", resort: "Hilton Grand Vacations", week: "5", status: "Fizetésre vár", minosite: "Zöld", date: "2026-02-20" },
-  { id: "TS-10227", seller: "Molnár Anna", resort: "Wyndham Destinations", week: "36", status: "Lezárva", minosite: "Zöld", date: "2026-02-18" },
-  { id: "TS-10226", seller: "Balogh Ferenc", resort: "Club Dobogómajor", week: "12", status: "Sárga ellenőrzés", minosite: "Sárga", date: "2026-02-17" },
-  { id: "TS-10225", seller: "Lakatos Zsuzsa", resort: "Hyatt Residence Club", week: "29", status: "Beküldve", minosite: "Zöld", date: "2026-02-15" },
-];
+// ---------- Helpers ----------
 
 function getStatusBadgeClasses(status: string) {
   switch (status) {
-    case "Beküldve": return "bg-muted text-muted-foreground";
-    case "Ellenőrzés alatt": return "bg-primary/10 text-primary";
-    case "Sárga ellenőrzés": return "bg-warning/10 text-warning";
-    case "Elutasítva": return "bg-destructive/10 text-destructive";
-    case "Jóváhagyva": return "bg-success/10 text-success";
-    case "Szerződés készül": return "bg-primary/10 text-primary";
-    case "Fizetésre vár": return "bg-warning/10 text-warning";
-    case "Lezárva": return "bg-muted text-muted-foreground";
-    default: return "bg-muted text-muted-foreground";
+    case "submitted":
+    case "documents_uploaded":
+      return "bg-muted text-muted-foreground";
+    case "ai_check":
+    case "under_review":
+      return "bg-primary/10 text-primary";
+    case "contract_pending":
+      return "bg-primary/10 text-primary";
+    case "payment_pending":
+      return "bg-warning/10 text-warning";
+    case "closed":
+      return "bg-muted text-muted-foreground";
+    default:
+      return "bg-muted text-muted-foreground";
   }
 }
 
-function getMinositeBadgeClasses(m: string) {
-  switch (m) {
-    case "Zöld": return "bg-success/10 text-success";
-    case "Sárga": return "bg-warning/10 text-warning";
-    case "Piros": return "bg-destructive/10 text-destructive";
-    default: return "bg-muted text-muted-foreground";
+function getClassificationBadgeClasses(c: string | null) {
+  switch (c) {
+    case "green":
+      return "bg-success/10 text-success";
+    case "yellow":
+      return "bg-warning/10 text-warning";
+    case "red":
+      return "bg-destructive/10 text-destructive";
+    default:
+      return "bg-muted text-muted-foreground";
   }
 }
+
+// ---------- Component ----------
 
 export default function AdminCases() {
   const navigate = useNavigate();
+  const [cases, setCases] = useState<CaseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [minositeFilter, setMinositeFilter] = useState<string>("all");
-  const [resortFilter, setResortFilter] = useState<string>("all");
+  const [classificationFilter, setClassificationFilter] = useState<string>("all");
 
-  const filtered = mockCases.filter((c) => {
-    if (search && !c.id.toLowerCase().includes(search.toLowerCase()) && !c.seller.toLowerCase().includes(search.toLowerCase())) return false;
+  const loadCases = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Load cases with seller profile name via seller_user_id -> profiles
+      const { data: casesData, error: casesError } = await supabase
+        .from("cases")
+        .select(`
+          id,
+          case_number,
+          status,
+          classification,
+          created_at,
+          seller_user_id,
+          profiles!cases_seller_user_id_fkey ( full_name )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (casesError) throw casesError;
+
+      if (!casesData || casesData.length === 0) {
+        setCases([]);
+        return;
+      }
+
+      // Load week_offers for resort + week info
+      const caseIds = casesData.map((c) => c.id);
+      const { data: offersData } = await supabase
+        .from("week_offers")
+        .select("case_id, resort_name_raw, week_number")
+        .in("case_id", caseIds);
+
+      const offerMap = new Map<string, { resort_name_raw: string | null; week_number: number | null }>();
+      offersData?.forEach((o) => {
+        if (!offerMap.has(o.case_id)) {
+          offerMap.set(o.case_id, { resort_name_raw: o.resort_name_raw, week_number: o.week_number });
+        }
+      });
+
+      const rows: CaseRow[] = casesData.map((c) => {
+        const offer = offerMap.get(c.id);
+        const profile = c.profiles as unknown as { full_name: string | null } | null;
+        return {
+          id: c.id,
+          case_number: c.case_number,
+          status: c.status,
+          classification: c.classification,
+          created_at: c.created_at,
+          seller_name: profile?.full_name ?? null,
+          resort_name: offer?.resort_name_raw ?? null,
+          week_number: offer?.week_number ?? null,
+        };
+      });
+
+      setCases(rows);
+    } catch (err: any) {
+      console.error("Failed to load cases", err);
+      setError(err.message || "Nem sikerült betölteni az ügyeket.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCases();
+  }, [loadCases]);
+
+  // ---------- Filtering ----------
+
+  const filtered = cases.filter((c) => {
+    if (search) {
+      const q = search.toLowerCase();
+      const matchesNumber = c.case_number.toLowerCase().includes(q);
+      const matchesName = c.seller_name?.toLowerCase().includes(q);
+      if (!matchesNumber && !matchesName) return false;
+    }
     if (statusFilter !== "all" && c.status !== statusFilter) return false;
-    if (minositeFilter !== "all" && c.minosite !== minositeFilter) return false;
-    if (resortFilter !== "all" && c.resort !== resortFilter) return false;
+    if (classificationFilter !== "all" && c.classification !== classificationFilter) return false;
     return true;
   });
 
-  const hasFilters = search || statusFilter !== "all" || minositeFilter !== "all" || resortFilter !== "all";
+  const hasFilters = search || statusFilter !== "all" || classificationFilter !== "all";
 
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
-    setMinositeFilter("all");
-    setResortFilter("all");
+    setClassificationFilter("all");
   };
+
+  // ---------- Render ----------
 
   return (
     <AdminLayout>
@@ -118,7 +219,7 @@ export default function AdminCases() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Keresés ügy számára vagy névre..."
+                  placeholder="Keresés ügy számra vagy névre..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
@@ -126,36 +227,26 @@ export default function AdminCases() {
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full lg:w-48">
-                  <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Státusz" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Összes státusz</SelectItem>
                   {statusOptions.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    <SelectItem key={s} value={s}>
+                      {statusLabels[s] ?? s}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={minositeFilter} onValueChange={setMinositeFilter}>
+              <Select value={classificationFilter} onValueChange={setClassificationFilter}>
                 <SelectTrigger className="w-full lg:w-44">
                   <SelectValue placeholder="Minősítés" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Összes minősítés</SelectItem>
-                  {minositeOptions.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={resortFilter} onValueChange={setResortFilter}>
-                <SelectTrigger className="w-full lg:w-52">
-                  <SelectValue placeholder="Üdülőhely" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Összes üdülőhely</SelectItem>
-                  {resortOptions.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
+                  <SelectItem value="green">Zöld</SelectItem>
+                  <SelectItem value="yellow">Sárga</SelectItem>
+                  <SelectItem value="red">Piros</SelectItem>
                 </SelectContent>
               </Select>
               {hasFilters && (
@@ -167,12 +258,27 @@ export default function AdminCases() {
           </CardContent>
         </Card>
 
+        {/* Error */}
+        {error && (
+          <Card className="border-destructive shadow-sm">
+            <CardContent className="pt-6 flex items-center gap-3 text-destructive">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <p>{error}</p>
+              <Button variant="outline" size="sm" onClick={loadCases} className="ml-auto">
+                Újrapróbálás
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Table */}
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Ügyek listája</span>
-              <span className="text-sm font-normal text-muted-foreground">{filtered.length} ügy</span>
+              {!loading && (
+                <span className="text-sm font-normal text-muted-foreground">{filtered.length} ügy</span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -180,7 +286,7 @@ export default function AdminCases() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ügy száma</TableHead>
-                  <TableHead>Eladó neve</TableHead>
+                  <TableHead>Eladó</TableHead>
                   <TableHead>Üdülőhely</TableHead>
                   <TableHead className="text-center">Hét</TableHead>
                   <TableHead>Státusz</TableHead>
@@ -189,31 +295,54 @@ export default function AdminCases() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c) => (
-                  <TableRow
-                    key={c.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/admin/case/${c.id}`)}
-                  >
-                    <TableCell className="font-medium text-primary">{c.id}</TableCell>
-                    <TableCell>{c.seller}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{c.resort}</TableCell>
-                    <TableCell className="text-center">{c.week}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getStatusBadgeClasses(c.status)}>{c.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getMinositeBadgeClasses(c.minosite)}>{c.minosite}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{c.date}</TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((_, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                      Nincs találat a megadott szűrőkkel.
+                      {cases.length === 0
+                        ? "Még nincsenek ügyek a rendszerben."
+                        : "Nincs találat a megadott szűrőkkel."}
                     </TableCell>
                   </TableRow>
+                ) : (
+                  filtered.map((c) => (
+                    <TableRow
+                      key={c.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/admin/cases/${c.id}`)}
+                    >
+                      <TableCell className="font-medium text-primary">{c.case_number}</TableCell>
+                      <TableCell>{c.seller_name ?? "—"}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{c.resort_name ?? "—"}</TableCell>
+                      <TableCell className="text-center">{c.week_number ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getStatusBadgeClasses(c.status)}>
+                          {statusLabels[c.status] ?? c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {c.classification ? (
+                          <Badge variant="outline" className={getClassificationBadgeClasses(c.classification)}>
+                            {classificationLabels[c.classification] ?? c.classification}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(c.created_at).toLocaleDateString("hu-HU")}
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
