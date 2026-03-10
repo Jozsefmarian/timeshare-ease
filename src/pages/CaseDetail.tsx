@@ -232,6 +232,26 @@ export default function CaseDetail() {
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Contract state
+  type ContractRow = {
+    id: string;
+    status: string;
+    generated_file_name: string | null;
+    generated_storage_bucket: string | null;
+    generated_storage_path: string | null;
+    signed_file_name: string | null;
+    signed_storage_bucket: string | null;
+    signed_storage_path: string | null;
+    generated_at: string | null;
+    signed_uploaded_at: string | null;
+  };
+  const [contract, setContract] = useState<ContractRow | null>(null);
+  const [signedFile, setSignedFile] = useState<File | null>(null);
+  const [isUploadingSigned, setIsUploadingSigned] = useState(false);
+  const [signedUploadMsg, setSignedUploadMsg] = useState<string | null>(null);
+  const [signedUploadErr, setSignedUploadErr] = useState<string | null>(null);
+  const signedFileRef = useRef<HTMLInputElement>(null);
+
   // Load case
   useEffect(() => {
     const loadCase = async () => {
