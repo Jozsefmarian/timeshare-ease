@@ -670,12 +670,21 @@ export default function CaseDetail() {
                       {uploadedDocuments.map((doc) => (
                         <div key={doc.id} className="rounded-md border border-border p-3 space-y-1.5 text-sm">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="space-y-0.5 min-w-0">
+                            <div className="space-y-0.5 min-w-0 flex-1">
                               <p className="font-medium text-foreground truncate">
                                 {doc.original_file_name || "Névtelen fájl"}
                               </p>
                               <p className="text-xs text-muted-foreground">{getDocTypeLabel(doc.document_type_id)}</p>
                             </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0 text-xs"
+                              disabled={previewLoadingId === doc.id || !doc.storage_bucket || !doc.storage_path}
+                              onClick={() => handleOpenDocument(doc)}
+                            >
+                              {previewLoadingId === doc.id ? "Megnyitás..." : "Megnyitás"}
+                            </Button>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline" className="text-xs">
