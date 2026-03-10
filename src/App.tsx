@@ -60,7 +60,7 @@ const App = () => (
             }
           />
           <Route
-            path="/seller/case/:caseId/upload"
+            path="/seller/new-case"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <NewCase />
@@ -102,7 +102,7 @@ const App = () => (
             }
           />
           <Route
-            path="/admin/cases/:id"
+            path="/admin/cases/:caseId"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminCaseDetail />
@@ -126,7 +126,7 @@ const App = () => (
             }
           />
           <Route
-            path="/admin/assets"
+            path="/admin/inventory"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminInventory />
