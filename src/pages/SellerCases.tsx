@@ -54,10 +54,10 @@ export default function SellerCases() {
           return;
         }
 
-        const { data, error: queryError } = await (supabase as any)
+        const { data, error: queryError } = await supabase
           .from("cases")
           .select("id, case_number, status, created_at")
-          .eq("seller_user_id", session.user.id)
+          .eq("seller_id", session.user.id)
           .order("created_at", { ascending: false });
 
         if (queryError) throw queryError;
@@ -141,15 +141,11 @@ export default function SellerCases() {
                       <div>
                         <p className="font-medium text-foreground">{c.case_number}</p>
                         <p className="text-sm text-muted-foreground">
-                          {statusLabel(c.status)} • {new Date(c.created_at).toLocaleDateString("hu-HU")}
+                          {statusLabel(c.status)} • {new Date(c.created_at).toLocaleString("hu-HU")}
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/seller/case/${c.id}`)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/seller/case/${c.id}`)}>
                       Részletek
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
