@@ -1,7 +1,15 @@
 import { CheckCircle2, Circle, Send, FileSearch, CheckCircle, XCircle, AlertTriangle, FileText, PenLine, Upload, FileCheck, CreditCard, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const TIMELINE_STEPS = [
+type TimelineStep = {
+  key: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  branch?: "approved" | "rejected" | "manual";
+};
+
+export const TIMELINE_STEPS: TimelineStep[] = [
   { key: "draft", label: "Piszkozat", icon: Circle, description: "Az ügy létrejött, de még nincs beküldve." },
   { key: "submitted", label: "Beküldve", icon: Send, description: "Az ügy sikeresen beküldve." },
   { key: "ai_processing", label: "AI feldolgozás", icon: FileSearch, description: "Automatikus feldolgozás alatt." },
@@ -15,7 +23,7 @@ export const TIMELINE_STEPS = [
   { key: "payment_pending", label: "Fizetés függőben", icon: CreditCard, description: "A fizetés még nem érkezett meg.", branch: "approved" },
   { key: "paid", label: "Fizetve", icon: CreditCard, description: "A fizetés megérkezett.", branch: "approved" },
   { key: "closed", label: "Lezárva", icon: Lock, description: "Az ügy sikeresen lezárult." },
-] as const;
+];
 
 // Map case status to timeline step index
 const STATUS_TO_STEP: Record<string, number> = {};
