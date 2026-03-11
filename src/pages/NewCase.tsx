@@ -191,29 +191,6 @@ export default function NewCase() {
 
       if (weekOfferError) throw weekOfferError;
 
-      const { error: declarationError } = await supabaseAny.from("declaration_acceptances").insert([
-        {
-          case_id: data.id,
-          declaration_type: "ownership_confirmation",
-          accepted: true,
-          accepted_at: now,
-        },
-        {
-          case_id: data.id,
-          declaration_type: "data_accuracy",
-          accepted: true,
-          accepted_at: now,
-        },
-        {
-          case_id: data.id,
-          declaration_type: "terms_acknowledged",
-          accepted: true,
-          accepted_at: now,
-        },
-      ]);
-
-      if (declarationError) throw declarationError;
-
       toast({ title: "Ügy létrehozva", description: "Az ügy létrejött. A folytatás az ügy adatlapján történik." });
       navigate(`/seller/cases/${data.id}`, { replace: true });
     } catch (err: any) {
