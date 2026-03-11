@@ -143,7 +143,7 @@ export default function NewCase() {
         .from("cases")
         .insert({
           case_number: generatedCaseNumber,
-          seller_id: session.user.id,
+          seller_user_id: session.user.id,
           seller_profile_id: sellerProfile?.id ?? null,
           status: "draft",
           status_group: "intake",
@@ -159,7 +159,7 @@ export default function NewCase() {
       if (error) throw error;
 
       toast({ title: "Ügy létrehozva", description: "Az ügy létrejött. A folytatás az ügy adatlapján történik." });
-      navigate(`/seller/case/${data.id}`, { replace: true });
+      navigate(`/seller/cases/${data.id}`, { replace: true });
     } catch (err: any) {
       console.error("NewCase insert error:", err);
       toast({
