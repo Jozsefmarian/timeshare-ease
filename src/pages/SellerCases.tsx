@@ -146,7 +146,7 @@ export default function SellerCases() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/seller/case/${c.id}`)}>
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/seller/cases/${c.id}`)}>
                       Részletek
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
