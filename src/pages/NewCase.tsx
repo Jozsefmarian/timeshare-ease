@@ -175,6 +175,22 @@ export default function NewCase() {
 
       if (error) throw error;
 
+      const { error: weekOfferError } = await supabaseAny.from("week_offers").insert({
+        case_id: data.id,
+        resort_name_raw: resort.trim(),
+        week_number: Number(weekNumber),
+        unit_type: apartmentType.trim(),
+        season_label: seasonName.trim(),
+        rights_start_year: Number(rightsStart),
+        rights_end_year: Number(rightsEnd),
+        share_related: hasShares === "yes",
+        share_count: hasShares === "yes" && shareCount ? Number(shareCount) : null,
+        created_at: now,
+        updated_at: now,
+      });
+
+      if (weekOfferError) throw weekOfferError;
+
       toast({ title: "Ügy létrehozva", description: "Az ügy létrejött. A folytatás az ügy adatlapján történik." });
       navigate(`/seller/cases/${data.id}`, { replace: true });
     } catch (err: any) {
