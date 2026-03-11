@@ -162,11 +162,12 @@ export default function NewCase() {
           case_number: generatedCaseNumber,
           seller_user_id: session.user.id,
           seller_profile_id: sellerProfile?.id ?? null,
-          status: "draft",
-          status_group: "intake",
-          current_step: "seller_started",
+          status: "submitted",
+          status_group: "processing",
+          current_step: "ai_processing",
           priority: "normal",
           source: "seller_portal",
+          submitted_at: now,
           created_at: now,
           updated_at: now,
         })
@@ -191,7 +192,7 @@ export default function NewCase() {
 
       if (weekOfferError) throw weekOfferError;
 
-      toast({ title: "Ügy létrehozva", description: "Az ügy létrejött. A folytatás az ügy adatlapján történik." });
+      toast({ title: "Ügy beküldve", description: "Az ügy sikeresen beküldve. Kövesse nyomon a feldolgozást az ügy oldalán." });
       navigate(`/seller/cases/${data.id}`, { replace: true });
     } catch (err: any) {
       console.error("NewCase insert error:", err);
