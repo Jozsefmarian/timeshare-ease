@@ -52,7 +52,7 @@ const App = () => (
             }
           />
           <Route
-            path="/seller/case/:caseId"
+            path="/seller/cases/:caseId"
             element={
               <ProtectedRoute allowedRoles={["seller"]}>
                 <CaseDetail />
