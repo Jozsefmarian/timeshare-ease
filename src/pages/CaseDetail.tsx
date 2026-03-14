@@ -88,13 +88,44 @@ type CheckResult = {
 // ---------- Status helpers ----------
 
 const STATUS_ORDER = [
-  "draft", "submitted", "ai_processing", "green_approved",
-  "contract_generated", "awaiting_signed_contract", "signed_contract_uploaded",
-  "service_agreement_accepted", "payment_pending", "paid", "closed",
+  "draft",
+  "submitted",
+  "docs_uploaded",
+  "ai_processing",
+  "yellow_review",
+  "red_rejected",
+  "green_approved",
+  "contract_generated",
+  "awaiting_signed_contract",
+  "signed_contract_uploaded",
+  "service_agreement_accepted",
+  "payment_pending",
+  "paid",
+  "closed",
 ];
 
+function normalizeCaseStatus(status: string | null | undefined): string {
+  if (!status) return "draft";
+
+  const map: Record<string, string> = {
+    documents_uploaded: "docs_uploaded",
+    review_in_progress: "ai_processing",
+    in_review: "ai_processing",
+    approved: "green_approved",
+    rejected: "red_rejected",
+    ready_for_contract: "green_approved",
+    contract_preparing: "contract_generated",
+    signed: "signed_contract_uploaded",
+    waiting_payment: "payment_pending",
+    completed: "closed",
+  };
+
+  return map[status] ?? status;
+}
+
 function isAtOrPast(current: string, target: string): boolean {
-  return STATUS_ORDER.indexOf(current) >= STATUS_ORDER.indexOf(target);
+  const normalizedCurrent = normalizeCaseStatus(current);
+  return STATUS_ORDER.indexOf(normalizedCurrent) >= STATUS_ORDER.indexOf(target);
 }
 
 // ---------- Component ----------
@@ -116,14 +147,26 @@ export default function CaseDetail() {
   useEffect(() => {
     const load = async () => {
       try {
-        if (!caseId) { setLoadError("Hiányzó ügyazonosító."); setIsLoading(false); return; }
+        if (!caseId) {
+          setLoadError("Hiányzó ügyazonosító.");
+          setIsLoading(false);
+          return;
+        }
 
-        const { data: { session } } = await supabaseAny.auth.getSession();
-        if (!session) { setLoadError("Nincs bejelentkezett felhasználó."); setIsLoading(false); return; }
+        const {
+          data: { session },
+        } = await supabaseAny.auth.getSession();
+        if (!session) {
+          setLoadError("Nincs bejelentkezett felhasználó.");
+          setIsLoading(false);
+          return;
+        }
 
         const { data, error } = await supabaseAny
           .from("cases")
-          .select("id, case_number, status, status_group, current_step, created_at, updated_at, submitted_at, closed_at, classification")
+          .select(
+            "id, case_number, status, status_group, current_step, created_at, updated_at, submitted_at, closed_at, classification",
+          )
           .eq("id", caseId)
           .eq("seller_user_id", session.user.id)
           .maybeSingle();
@@ -163,7 +206,9 @@ export default function CaseDetail() {
     if (!caseId) return;
     const { data } = await supabaseAny
       .from("documents")
-      .select("id, original_file_name, upload_status, review_status, ai_status, uploaded_at, document_type_id, storage_bucket, storage_path")
+      .select(
+        "id, original_file_name, upload_status, review_status, ai_status, uploaded_at, document_type_id, storage_bucket, storage_path",
+      )
       .eq("case_id", caseId)
       .order("created_at", { ascending: false });
     if (data) setUploadedDocuments(data as UploadedDocument[]);
@@ -173,7 +218,9 @@ export default function CaseDetail() {
     if (!caseId) return;
     const { data } = await supabaseAny
       .from("contracts")
-      .select("id, status, generated_file_name, generated_storage_bucket, generated_storage_path, signed_file_name, signed_storage_bucket, signed_storage_path, generated_at, signed_uploaded_at")
+      .select(
+        "id, status, generated_file_name, generated_storage_bucket, generated_storage_path, signed_file_name, signed_storage_bucket, signed_storage_path, generated_at, signed_uploaded_at",
+      )
       .eq("case_id", caseId)
       .eq("contract_type", "sale_purchase")
       .maybeSingle();
@@ -217,7 +264,9 @@ export default function CaseDetail() {
     return checkResults
       .filter((cr) => cr.result === "correction_required" || cr.severity === "correction")
       .map((cr) => ({
-        type: (cr.check_type === "document_check" ? "document_replace" : "field_correction") as "document_replace" | "field_correction",
+        type: (cr.check_type === "document_check" ? "document_replace" : "field_correction") as
+          | "document_replace"
+          | "field_correction",
         message: cr.message || "Javítás szükséges.",
         document_type_id: cr.details?.document_type_id,
         document_type_label: cr.details?.document_type_label,
@@ -228,7 +277,15 @@ export default function CaseDetail() {
   }, [checkResults]);
 
   const handleCaseStatusUpdate = (newStatus: string) => {
-    setCaseData((prev) => prev ? { ...prev, status: newStatus, updated_at: new Date().toISOString() } : prev);
+    setCaseData((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: normalizeCaseStatus(newStatus),
+            updated_at: new Date().toISOString(),
+          }
+        : prev,
+    );
   };
 
   // ---------- Render ----------
@@ -268,7 +325,7 @@ export default function CaseDetail() {
     );
   }
 
-  const status = caseData.status;
+  const status = normalizeCaseStatus(caseData.status);
 
   return (
     <SellerLayout>
@@ -299,59 +356,60 @@ export default function CaseDetail() {
           {/* Right: Status-based action panels */}
           <div className="lg:col-span-3 space-y-6">
             {/* AI Processing */}
-            {(status === "submitted" || status === "ai_processing") && (
+            {(status === "submitted" || status === "docs_uploaded" || status === "ai_processing") && (
               <AiProcessingPanel />
             )}
 
             {/* Manual Review */}
-            {status === "yellow_review" && (
-              <ManualReviewPanel />
-            )}
+            {status === "yellow_review" && <ManualReviewPanel />}
 
             {/* Rejected */}
-            {status === "red_rejected" && (
-              <RejectedPanel reasonSummary={classification?.reason_summary} />
-            )}
+            {status === "red_rejected" && <RejectedPanel reasonSummary={classification?.reason_summary} />}
 
             {/* Correction requests (policy-driven) */}
             {corrections.length > 0 && (
               <CorrectionPanel
                 caseId={caseId!}
                 corrections={corrections}
-                onCorrectionCompleted={() => { loadUploadedDocuments(); loadCheckResults(); }}
+                onCorrectionCompleted={() => {
+                  loadUploadedDocuments();
+                  loadCheckResults();
+                }}
               />
             )}
 
             {/* Contract panel */}
-            {contract && isAtOrPast(status, "green_approved") && status !== "red_rejected" && status !== "yellow_review" && (
-              <ContractPanel
-                contract={contract}
-                caseId={caseId!}
-                caseStatus={status}
-                onContractUpdated={loadContract}
-                onCaseStatusUpdated={handleCaseStatusUpdate}
-              />
-            )}
+            {contract &&
+              isAtOrPast(status, "green_approved") &&
+              status !== "red_rejected" &&
+              status !== "yellow_review" && (
+                <ContractPanel
+                  contract={contract}
+                  caseId={caseId!}
+                  caseStatus={status}
+                  onContractUpdated={loadContract}
+                  onCaseStatusUpdated={handleCaseStatusUpdate}
+                />
+              )}
 
             {/* Service Agreement */}
-            {isAtOrPast(status, "signed_contract_uploaded") && status !== "red_rejected" && status !== "yellow_review" && (
-              <ServiceAgreementPanel
-                caseId={caseId!}
-                caseStatus={status}
-                onAccepted={() => handleCaseStatusUpdate("service_agreement_accepted")}
-              />
-            )}
+            {isAtOrPast(status, "signed_contract_uploaded") &&
+              status !== "red_rejected" &&
+              status !== "yellow_review" && (
+                <ServiceAgreementPanel
+                  caseId={caseId!}
+                  caseStatus={status}
+                  onAccepted={() => handleCaseStatusUpdate("service_agreement_accepted")}
+                />
+              )}
 
             {/* Payment */}
-            {isAtOrPast(status, "service_agreement_accepted") && status !== "red_rejected" && status !== "yellow_review" && (
-              <PaymentPanel caseStatus={status} />
-            )}
+            {isAtOrPast(status, "service_agreement_accepted") &&
+              status !== "red_rejected" &&
+              status !== "yellow_review" && <PaymentPanel caseStatus={status} />}
 
             {/* Submitted documents (read-only) */}
-            <SubmittedDocumentsPanel
-              documents={uploadedDocuments}
-              documentTypes={documentTypes}
-            />
+            <SubmittedDocumentsPanel documents={uploadedDocuments} documentTypes={documentTypes} />
           </div>
         </div>
       </div>
