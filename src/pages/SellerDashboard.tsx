@@ -24,23 +24,55 @@ interface CaseRow {
 }
 
 function statusColor(status: string) {
-  if (["completed", "signed", "closed"].includes(status)) return "bg-success";
-  if (status === "cancelled") return "bg-destructive";
+  if (["green_approved", "paid", "closed"].includes(status)) return "bg-success";
+  if (["red_rejected", "cancelled"].includes(status)) return "bg-destructive";
+  if (["yellow_review", "payment_pending", "awaiting_signed_contract"].includes(status)) return "bg-warning";
   if (status === "draft") return "bg-muted-foreground";
-  return "bg-warning";
+  return "bg-primary";
+}
+
+function stepLabel(step: string | null) {
+  if (!step) return "";
+
+  const map: Record<string, string> = {
+    seller_started: "Űrlap kitöltése",
+    submitted: "Beküldve",
+    docs_uploaded: "Dokumentumok feltöltve",
+    ai_processing: "AI feldolgozás",
+    yellow_review: "Kézi ellenőrzés szükséges",
+    red_rejected: "Elutasítva",
+    green_approved: "Jóváhagyva",
+    contract_generated: "Szerződés generálva",
+    awaiting_signed_contract: "Aláírásra vár",
+    signed_contract_uploaded: "Aláírt szerződés feltöltve",
+    service_agreement_accepted: "Szolgáltatási szerződés elfogadva",
+    payment_pending: "Fizetés függőben",
+    paid: "Fizetve",
+    closed: "Lezárva",
+  };
+
+  return map[step] ?? step;
 }
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
     draft: "Piszkozat",
     submitted: "Beküldve",
-    in_review: "Felülvizsgálat alatt",
-    approved: "Jóváhagyva",
-    completed: "Lezárva",
-    signed: "Aláírva",
-    cancelled: "Törölve",
+    docs_uploaded: "Dokumentumok feltöltve",
+    ai_processing: "AI feldolgozás",
+    yellow_review: "Kézi ellenőrzés szükséges",
+    red_rejected: "Elutasítva",
+    green_approved: "Jóváhagyva",
+    contract_generated: "Szerződés generálva",
+    awaiting_signed_contract: "Aláírásra vár",
+    signed_contract_uploaded: "Aláírt szerződés feltöltve",
+    service_agreement_accepted: "Szolgáltatási szerződés elfogadva",
+    payment_pending: "Fizetés függőben",
+    paid: "Fizetve",
     closed: "Lezárva",
+    cancelled: "Törölve",
   };
+
   return map[status] ?? status;
 }
 
@@ -84,11 +116,11 @@ export default function SellerDashboard() {
 
   const totalCases = cases.length;
   const activeCases = cases.filter(
-    (c) => c.closed_at === null && c.status !== "closed" && c.status !== "completed",
+    (c) => c.closed_at === null && c.status !== "closed" && c.status !== "cancelled",
   ).length;
   const submittedCases = cases.filter((c) => c.submitted_at !== null).length;
   const closedCases = cases.filter(
-    (c) => c.closed_at !== null || c.status === "closed" || c.status === "completed",
+    (c) => c.closed_at !== null || c.status === "closed" || c.status === "cancelled",
   ).length;
 
   return (
@@ -178,8 +210,7 @@ export default function SellerDashboard() {
                         <div>
                           <p className="font-medium text-foreground text-sm">{c.case_number}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {statusLabel(c.status)}
-                            {c.current_step ? ` · ${c.current_step}` : ""}
+                            {statusLabel(c.status)} {c.current_step ? ` · ${stepLabel(c.current_step)}` : ""}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(c.created_at).toLocaleDateString("hu-HU")}
