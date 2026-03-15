@@ -573,6 +573,7 @@ export default function AdminCaseDetail() {
               </Badge>
             </div>
             {seller && <p className="text-muted-foreground text-sm mt-0.5">{seller.full_name || seller.email}</p>}
+            <Button onClick={() => navigate(`/admin/cases/${caseId}/review`)}>Review képernyő</Button>
           </div>
         </div>
 
