@@ -694,7 +694,7 @@ export default function AdminCaseReview() {
                   <CheckCircle2 className="h-4 w-4" />
                   Ügy jóváhagyása
                   {!canApproveCase && documents.length > 0 && (
-                    <span className="text-xs ml-auto opacity-70">(Van elutasított / újrafeltöltendő dok.)</span>
+                    <span className="text-xs ml-auto opacity-70">(Nem minden dokumentum jóváhagyott még.)</span>
                   )}
                   {documents.length === 0 && <span className="text-xs ml-auto opacity-70">(Nincs dokumentum)</span>}
                 </Button>
