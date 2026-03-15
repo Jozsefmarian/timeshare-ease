@@ -14,6 +14,7 @@ import SellerCasePayment from "./pages/SellerCasePayment";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCases from "./pages/AdminCases";
 import AdminCaseDetail from "./pages/AdminCaseDetail";
+import AdminCaseReview from "./pages/AdminCaseReview";
 import AdminPolicies from "./pages/AdminPolicies";
 import AdminResorts from "./pages/AdminResorts";
 import AdminInventory from "./pages/AdminInventory";
@@ -106,6 +107,14 @@ const App = () => (
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminCaseDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/cases/:caseId/review"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminCaseReview />
               </ProtectedRoute>
             }
           />

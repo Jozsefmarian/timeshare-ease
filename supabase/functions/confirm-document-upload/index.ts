@@ -199,8 +199,9 @@ if (userError || !user) {
 
 // ---------- AI Validation Pipeline (placeholder) ----------
 
+// deno-lint-ignore no-explicit-any
 async function startDocumentValidation(
-  serviceClient: ReturnType<typeof createClient>,
+  serviceClient: any,
   documentId: string,
   caseId: string
 ) {
