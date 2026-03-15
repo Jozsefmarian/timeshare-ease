@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { getInitials, getSessionAndProfile, type AppProfile } from "@/lib/auth";
+import tsrLogo from "@/assets/tsr-logo.png";
 
 const adminNavItems = [
   { title: "Vezérlőpult", icon: LayoutDashboard, href: "/admin" },
