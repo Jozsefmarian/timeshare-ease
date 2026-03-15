@@ -109,14 +109,15 @@ const App = () => (
                 <AdminCaseDetail />
               </ProtectedRoute>
             }
-            <Route
-  path="/admin/cases/:caseId/review"
-  element={
-    <ProtectedRoute allowedRoles={["admin"]}>
-      <AdminCaseReview />
-    </ProtectedRoute>
-  }
-/>
+          />
+          <Route
+            path="/admin/cases/:caseId/review"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminCaseReview />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/policies"
             element={
