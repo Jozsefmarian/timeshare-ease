@@ -6,21 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, X, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -120,7 +107,8 @@ export default function AdminCases() {
       // Load cases with seller profile name via seller_user_id -> profiles
       const { data: casesData, error: casesError } = await supabase
         .from("cases")
-        .select(`
+        .select(
+          `
           id,
           case_number,
           status,
@@ -128,7 +116,8 @@ export default function AdminCases() {
           created_at,
           seller_user_id,
           profiles!cases_seller_user_id_fkey ( full_name )
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (casesError) throw casesError;
@@ -276,9 +265,7 @@ export default function AdminCases() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Ügyek listája</span>
-              {!loading && (
-                <span className="text-sm font-normal text-muted-foreground">{filtered.length} ügy</span>
-              )}
+              {!loading && <span className="text-sm font-normal text-muted-foreground">{filtered.length} ügy</span>}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -315,12 +302,19 @@ export default function AdminCases() {
                   </TableRow>
                 ) : (
                   filtered.map((c) => (
-                    <TableRow
-                      key={c.id}
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/admin/cases/${c.id}`)}
-                    >
-                      <TableCell className="font-medium text-primary">{c.case_number}</TableCell>
+                    <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/admin/cases/${c.id}`)}>
+                      <TableCell className="font-medium text-primary">
+                        <button
+                          type="button"
+                          className="hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/cases/${c.id}/review`);
+                          }}
+                        >
+                          {c.case_number}
+                        </button>
+                      </TableCell>
                       <TableCell>{c.seller_name ?? "—"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{c.resort_name ?? "—"}</TableCell>
                       <TableCell className="text-center">{c.week_number ?? "—"}</TableCell>
