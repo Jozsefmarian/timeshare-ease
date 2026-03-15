@@ -192,6 +192,65 @@ function classificationLabel(c: string | null): string {
   }
 }
 
+function aiValidationBadgeLabel(s: string): string {
+  switch (s) {
+    case "green":
+      return "Zöld";
+    case "yellow":
+      return "Sárga";
+    case "red":
+      return "Piros";
+    case "manual_review":
+      return "Manuális ellenőrzés";
+    case "support":
+      return "Support";
+    case "pending":
+      return "Függőben";
+    case "processing":
+      return "Feldolgozás";
+    case "completed":
+      return "Kész";
+    case "failed":
+      return "Sikertelen";
+    default:
+      return s;
+  }
+}
+
+function aiValidationBadgeClasses(s: string): string {
+  switch (s) {
+    case "green":
+      return "bg-success/10 text-success";
+    case "yellow":
+    case "manual_review":
+      return "bg-warning/10 text-warning";
+    case "red":
+    case "support":
+    case "failed":
+      return "bg-destructive/10 text-destructive";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
+function normalizeKeywordFlags(
+  flags: Record<string, unknown> | null
+): string[] {
+  if (!flags) return [];
+
+  if (Array.isArray(flags)) {
+    return flags.map(String).filter(Boolean);
+  }
+
+  return Object.entries(flags).flatMap(([key, value]) => {
+    if (value === true) return [key];
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    if (typeof value === "string" && value.trim()) return [`${key}: ${value}`];
+    if (typeof value === "number") return [`${key}: ${value}`];
+    return [];
+  });
+}
+
 function classificationClasses(c: string | null): string {
   switch (c) {
     case "green":
@@ -241,6 +300,7 @@ export default function AdminCaseReview() {
 
   // Modals
   const [requestFixOpen, setRequestFixOpen] = useState(false);
+  const [adminNote, setAdminNote] = useState("");
   const [requestFixNote, setRequestFixNote] = useState("");
   const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
 
@@ -384,7 +444,7 @@ export default function AdminCaseReview() {
     }
   };
 
-  const handleApproveCase = () => updateCaseStatus("contract_pending");
+  const handleApproveCase = () => updateCaseStatus("contract_pending", adminNote || undefined);
 
   const handleRequestFix = async () => {
     await updateCaseStatus("under_review", requestFixNote);
@@ -393,9 +453,12 @@ export default function AdminCaseReview() {
   };
 
   const handleRejectCase = async () => {
-    await updateCaseStatus("closed", "Admin által lezárva");
-    setRejectConfirmOpen(false);
-  };
+  await updateCaseStatus(
+    "closed",
+    adminNote?.trim() ? `Admin által lezárva. ${adminNote}` : "Admin által lezárva"
+  );
+  setRejectConfirmOpen(false);
+};
 
   // ---------- Render ----------
 
@@ -540,6 +603,11 @@ export default function AdminCaseReview() {
                   <div className="divide-y divide-border">
                     {documents.map((doc) => {
                       const canReviewDocument = doc.upload_status === "completed";
+                    const canPreviewDocument =
+  !!doc.storage_bucket &&
+  !!doc.storage_path &&
+  doc.upload_status === "completed";
+
 
                       return (
                         <div key={doc.id} className="px-6 py-4 space-y-3">
@@ -565,18 +633,18 @@ export default function AdminCaseReview() {
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={previewLoadingId === doc.id || !doc.storage_path}
-                              onClick={() => handlePreview(doc)}
-                            >
-                              {previewLoadingId === doc.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              ) : (
-                                <Eye className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              Megtekintés
-                            </Button>
+  variant="outline"
+  size="sm"
+  disabled={!canPreviewDocument || previewLoadingId === doc.id}
+  onClick={() => handlePreview(doc)}
+>
+  {previewLoadingId === doc.id ? (
+    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+  ) : (
+    <Eye className="h-4 w-4 mr-2" />
+  )}
+  Megtekintés
+</Button>
                             <Separator orientation="vertical" className="h-6" />
                             <Button
                               size="sm"
@@ -639,6 +707,7 @@ export default function AdminCaseReview() {
                     {validationResults.map((vr) => {
                       const doc = documents.find((d) => d.id === vr.document_id);
                       const docName = doc ? doc.original_file_name || doc.file_name : "Ismeretlen dokumentum";
+                    const keywordItems = normalizeKeywordFlags(vr.keyword_flags as Record<string, unknown> | null);
                       return (
                         <div key={vr.id} className="px-6 py-4 space-y-2">
                           <p className="text-sm font-medium text-foreground">{docName}</p>
@@ -655,7 +724,9 @@ export default function AdminCaseReview() {
                                       : "bg-muted text-muted-foreground"
                               }
                             >
-                              {aiStatusLabel(vr.validation_status)}
+                              <Badge className={aiValidationBadgeClasses(vr.validation_status)}>
+  {aiValidationBadgeLabel(vr.validation_status)}
+</Badge>
                             </Badge>
                             {vr.field_match_score != null && (
                               <span className="text-sm text-foreground">
@@ -663,11 +734,18 @@ export default function AdminCaseReview() {
                               </span>
                             )}
                           </div>
-                          {vr.keyword_flags && Object.keys(vr.keyword_flags).length > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              Kulcsszó jelzések: {JSON.stringify(vr.keyword_flags)}
-                            </p>
-                          )}
+                          {vr.keyword_flags && Object.keys{keywordItems.length > 0 && (
+  <div className="space-y-2">
+    <p className="text-sm font-medium">Kulcsszó jelzések</p>
+    <div className="flex flex-wrap gap-2">
+      {keywordItems.map((item) => (
+        <Badge key={item} variant="outline">
+          {item}
+        </Badge>
+      ))}
+    </div>
+  </div>
+)}
                           {vr.notes && <p className="text-xs text-muted-foreground">{vr.notes}</p>}
                         </div>
                       );
@@ -686,6 +764,15 @@ export default function AdminCaseReview() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="space-y-2">
+  <label className="text-sm font-medium">Belső admin megjegyzés</label>
+  <Textarea
+    value={adminNote}
+    onChange={(e) => setAdminNote(e.target.value)}
+    placeholder="Belső megjegyzés admin használatra. Audit logba is bekerülhet."
+    rows={4}
+  />
+</div>
                 <Button
                   className="w-full justify-start gap-2"
                   disabled={isCaseAction || !canApproveCase}
