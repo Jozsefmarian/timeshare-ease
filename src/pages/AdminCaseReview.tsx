@@ -276,6 +276,86 @@ function statusLabel(s: string): string {
   return map[s] ?? s;
 }
 
+type EffectiveAiDecision = "pending" | "green" | "yellow" | "red" | "support";
+
+function normalizeValidationStatus(status: string): EffectiveAiDecision {
+  switch (status) {
+    case "green":
+      return "green";
+    case "yellow":
+    case "manual_review":
+      return "yellow";
+    case "red":
+      return "red";
+    case "support":
+      return "support";
+    case "pending":
+    case "processing":
+      return "pending";
+    case "completed":
+      // A mostani placeholder AI még nem valódi GREEN/YELLOW/RED döntés,
+      // ezért ezt biztonságból YELLOW-ként kezeljük.
+      return "yellow";
+    case "failed":
+      return "support";
+    default:
+      return "yellow";
+  }
+}
+
+function getCaseAiDecision(documents: CaseDocument[], validationResults: AiValidationResult[]): EffectiveAiDecision {
+  if (documents.length === 0) return "pending";
+
+  const completedDocs = documents.filter((d) => d.upload_status === "completed");
+  if (completedDocs.length === 0) return "pending";
+
+  const completedDocIds = new Set(completedDocs.map((d) => d.id));
+  const relatedResults = validationResults.filter((r) => completedDocIds.has(r.document_id));
+
+  if (relatedResults.length < completedDocs.length) {
+    return "pending";
+  }
+
+  const normalized = relatedResults.map((r) => normalizeValidationStatus(r.validation_status));
+
+  if (normalized.some((s) => s === "support")) return "support";
+  if (normalized.some((s) => s === "red")) return "red";
+  if (normalized.some((s) => s === "pending")) return "pending";
+  if (normalized.some((s) => s === "yellow")) return "yellow";
+  if (normalized.every((s) => s === "green")) return "green";
+
+  return "yellow";
+}
+
+function caseAiDecisionLabel(status: EffectiveAiDecision): string {
+  switch (status) {
+    case "green":
+      return "AI döntés: Zöld";
+    case "yellow":
+      return "AI döntés: Sárga";
+    case "red":
+      return "AI döntés: Piros";
+    case "support":
+      return "AI döntés: Support";
+    default:
+      return "AI döntés: Függőben";
+  }
+}
+
+function caseAiDecisionClasses(status: EffectiveAiDecision): string {
+  switch (status) {
+    case "green":
+      return "bg-success/10 text-success";
+    case "yellow":
+      return "bg-warning/10 text-warning";
+    case "red":
+    case "support":
+      return "bg-destructive/10 text-destructive";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
 // ---------- Component ----------
 
 export default function AdminCaseReview() {
@@ -370,8 +450,14 @@ export default function AdminCaseReview() {
     return doc.document_type || "Ismeretlen";
   };
 
+  const caseAiDecision = getCaseAiDecision(documents, validationResults);
+
   const canApproveCase =
-    documents.length > 0 && documents.every((d) => d.upload_status === "completed" && d.review_status === "approved");
+    caseAiDecision !== "pending" &&
+    caseAiDecision !== "red" &&
+    caseAiDecision !== "support" &&
+    documents.length > 0 &&
+    documents.every((d) => d.upload_status === "completed" && d.review_status === "approved");
 
   // ---------- Document Actions ----------
 
@@ -747,6 +833,40 @@ export default function AdminCaseReview() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
+                  <p className="text-sm font-medium">Összesített AI döntés</p>
+                  <Badge className={caseAiDecisionClasses(caseAiDecision)}>{caseAiDecisionLabel(caseAiDecision)}</Badge>
+
+                  {caseAiDecision === "green" && (
+                    <p className="text-xs text-muted-foreground">
+                      A dokumentumok AI szempontból tisztának tűnnek. Az ügy mehet tovább admin jóváhagyással.
+                    </p>
+                  )}
+
+                  {caseAiDecision === "yellow" && (
+                    <p className="text-xs text-muted-foreground">
+                      Az AI manuális ellenőrzést javasol. Admin döntés szükséges.
+                    </p>
+                  )}
+
+                  {caseAiDecision === "red" && (
+                    <p className="text-xs text-muted-foreground">
+                      Az AI piros jelzést adott. Az ügyet nem szabad automatikusan továbbengedni.
+                    </p>
+                  )}
+
+                  {caseAiDecision === "support" && (
+                    <p className="text-xs text-muted-foreground">
+                      Az ügy support / speciális kezelés irányba esik. Külön ügyintézés szükséges.
+                    </p>
+                  )}
+
+                  {caseAiDecision === "pending" && (
+                    <p className="text-xs text-muted-foreground">
+                      Az AI ellenőrzés még nem ért véget, vagy még nincs teljes eredmény.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Belső admin megjegyzés</label>
                   <Textarea
                     value={adminNote}
@@ -763,7 +883,9 @@ export default function AdminCaseReview() {
                   <CheckCircle2 className="h-4 w-4" />
                   Ügy jóváhagyása
                   {!canApproveCase && documents.length > 0 && (
-                    <span className="text-xs ml-auto opacity-70">(Nem minden dokumentum jóváhagyott még.)</span>
+                    <span className="text-xs ml-auto opacity-70">
+                      (Az AI döntés vagy a dokumentumreview még nem engedi a jóváhagyást.)
+                    </span>
                   )}
                   {documents.length === 0 && <span className="text-xs ml-auto opacity-70">(Nincs dokumentum)</span>}
                 </Button>
