@@ -287,8 +287,7 @@ Deno.serve(async (req) => {
     // 13. Return success
     return new Response(
       JSON.stringify({
-        success: true,
-        document: updatedDocument,
+        ...updatedDocument,
         ai_job: createdJob,
       }),
       {
