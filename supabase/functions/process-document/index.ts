@@ -37,6 +37,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function isInternalRequest(req: Request, serviceRoleKey: string) {
+  const authHeader = req.headers.get("Authorization");
+  const apikey = req.headers.get("apikey");
+  return authHeader === `Bearer ${serviceRoleKey}` || apikey === serviceRoleKey;
+}
+
 function normalizeText(value: string | null | undefined): string {
   return (value ?? "")
     .normalize("NFD")
@@ -52,7 +58,8 @@ function detectDocumentType(documentType: string | null, fileName: string | null
   if (source.includes("share") || source.includes("reszveny")) return "share_statement";
   if (source.includes("szemelyi") || source.includes("id") || source.includes("passport")) return "id_document";
   if (source.includes("fee") || source.includes("dij") || source.includes("szamla")) return "annual_fee_invoice";
-  if (source.includes("contract") || source.includes("szerzodes") || source.includes("timeshare")) return "timeshare_contract";
+  if (source.includes("contract") || source.includes("szerzodes") || source.includes("timeshare"))
+    return "timeshare_contract";
 
   return "other";
 }
@@ -66,7 +73,9 @@ function extractFieldsFromText(text: string, detectedType: string) {
   const weekMatch = normalized.match(/(?:het(?:e|ében|eben)?|week)\s*[:\-]?\s*(\d{1,2})/i);
   if (weekMatch) result.week_number = Number(weekMatch[1]);
 
-  const contractMatch = normalized.match(/(?:szerz[őo]d[ée]s(?:sz[aá]m)?|contract(?: number)?)\s*[:\-]?\s*([A-Z0-9\-\/]+)/i);
+  const contractMatch = normalized.match(
+    /(?:szerz[őo]d[ée]s(?:sz[aá]m)?|contract(?: number)?)\s*[:\-]?\s*([A-Z0-9\-\/]+)/i,
+  );
   if (contractMatch) result.contract_number = contractMatch[1];
 
   const endYearMatch = normalized.match(/(?:lej[aá]rat|end year|v[eé]g(?:e)?)\s*[:\-]?\s*(20\d{2})/i);
@@ -136,56 +145,6 @@ function buildRestrictionHits(text: string) {
   return hits;
 }
 
-async function saveValidationResults(
-  serviceClient: ReturnType<typeof createClient>,
-  caseId: string,
-  documentId: string,
-  extractedFields: Record<string, unknown>,
-) {
-  const rows: Array<Record<string, unknown>> = [];
-
-  const fieldKeys = [
-    "owner_name",
-    "resort_name",
-    "week_number",
-    "contract_number",
-    "end_year",
-    "annual_fee",
-    "share_count",
-  ];
-
-  for (const fieldKey of fieldKeys) {
-    const extractedValue = extractedFields[fieldKey];
-
-    if (extractedValue === undefined || extractedValue === null || extractedValue === "") {
-      continue;
-    }
-
-    rows.push({
-      case_id: caseId,
-      document_id: documentId,
-      result_type: "field_extraction",
-      status: "match_ok",
-      field_key: fieldKey,
-      extracted_value: String(extractedValue),
-      normalized_extracted_value: normalizeText(String(extractedValue)),
-      details: {
-        source: "process_document_mvp",
-      },
-    });
-  }
-
-  if (rows.length === 0) return;
-
-  const { error } = await serviceClient
-    .from("ai_validation_results")
-    .insert(rows);
-
-  if (error) {
-    throw error;
-  }
-}
-
 async function saveCheckResults(
   serviceClient: ReturnType<typeof createClient>,
   caseId: string,
@@ -213,14 +172,8 @@ async function saveCheckResults(
       case_id: caseId,
       document_id: documentId,
       check_type: `field_presence:${fieldKey}`,
-      result:
-        extractedValue !== undefined && extractedValue !== null && extractedValue !== ""
-          ? "pass"
-          : "warning",
-      severity:
-        extractedValue !== undefined && extractedValue !== null && extractedValue !== ""
-          ? "info"
-          : "medium",
+      result: extractedValue !== undefined && extractedValue !== null && extractedValue !== "" ? "pass" : "warning",
+      severity: extractedValue !== undefined && extractedValue !== null && extractedValue !== "" ? "info" : "medium",
       message:
         extractedValue !== undefined && extractedValue !== null && extractedValue !== ""
           ? `Field extracted: ${fieldKey}`
@@ -239,9 +192,7 @@ async function saveCheckResults(
     check_type: "policy_version_linked",
     result: policyVersionId ? "pass" : "warning",
     severity: policyVersionId ? "info" : "medium",
-    message: policyVersionId
-      ? "Policy version linked to AI job."
-      : "No policy version linked to AI job.",
+    message: policyVersionId ? "Policy version linked to AI job." : "No policy version linked to AI job.",
     details: {
       policy_version_id: policyVersionId,
     },
@@ -254,9 +205,7 @@ async function saveCheckResults(
     result: restrictionHits.length > 0 ? "warning" : "pass",
     severity: restrictionHits.length > 0 ? "high" : "info",
     message:
-      restrictionHits.length > 0
-        ? `Restriction hits found: ${restrictionHits.length}`
-        : "No restriction hits found.",
+      restrictionHits.length > 0 ? `Restriction hits found: ${restrictionHits.length}` : "No restriction hits found.",
     details: {
       restriction_hits_count: restrictionHits.length,
     },
@@ -278,9 +227,7 @@ async function saveCheckResults(
     });
   }
 
-  const { error } = await serviceClient
-    .from("check_results")
-    .insert(rows);
+  const { error } = await serviceClient.from("check_results").insert(rows);
 
   if (error) {
     throw error;
@@ -309,9 +256,7 @@ async function saveRestrictionHits(
     details: hit.details,
   }));
 
-  const { error } = await serviceClient
-    .from("case_restriction_hits")
-    .insert(rows);
+  const { error } = await serviceClient.from("case_restriction_hits").insert(rows);
 
   if (error) {
     throw error;
@@ -328,12 +273,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-const supabaseUrl = Deno.env.get("SUPABASE_URL");
-const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
       return jsonResponse({ error: "Missing Supabase environment variables" }, 500);
+    }
+
+    if (!isInternalRequest(req, serviceRoleKey)) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
@@ -353,10 +301,7 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       .single<JobRow>();
 
     if (jobLoadError || !job) {
-      return jsonResponse(
-        { error: "AI validation job not found", detail: jobLoadError?.message ?? null },
-        404,
-      );
+      return jsonResponse({ error: "AI validation job not found", detail: jobLoadError?.message ?? null }, 404);
     }
 
     if (!job.document_id) {
@@ -374,16 +319,14 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       .eq("id", job.id);
 
     if (jobStartError) {
-      return jsonResponse(
-        { error: "Failed to mark job as processing", detail: jobStartError.message },
-        500,
-      );
+      return jsonResponse({ error: "Failed to mark job as processing", detail: jobStartError.message }, 500);
     }
 
     // 3. Dokumentum betöltése
     const { data: doc, error: docLoadError } = await serviceClient
       .from("documents")
-      .select(`
+      .select(
+        `
         id,
         case_id,
         document_type,
@@ -394,7 +337,8 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         file_size_bytes,
         ai_status,
         upload_status
-      `)
+      `,
+      )
       .eq("id", job.document_id)
       .single<DocumentRow>();
 
@@ -443,26 +387,12 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     // 9. form data comparison helye
     // Most MVP-ben még csak extraction resultokat mentünk.
-    await saveValidationResults(serviceClient, doc.case_id, doc.id, extractedFields);
 
-        // 10. restriction scan
+    // 10. restriction scan
     const restrictionHits = buildRestrictionHits(extractedTextRaw);
-    await saveRestrictionHits(
-      serviceClient,
-      doc.case_id,
-      doc.id,
-      job.policy_version_id,
-      restrictionHits,
-    );
+    await saveRestrictionHits(serviceClient, doc.case_id, doc.id, job.policy_version_id, restrictionHits);
 
-    await saveCheckResults(
-      serviceClient,
-      doc.case_id,
-      doc.id,
-      extractedFields,
-      restrictionHits,
-      job.policy_version_id,
-    );
+    await saveCheckResults(serviceClient, doc.case_id, doc.id, extractedFields, restrictionHits, job.policy_version_id);
 
     // 11. Dokumentum összegzés
     const hasConfirmedRestriction = restrictionHits.some((hit) => hit.severity === "confirmed");
@@ -497,20 +427,20 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       })
       .eq("id", job.id);
 
-        // 13. classify-case trigger
+    // 13. classify-case trigger
     try {
       const classifyResponse = await fetch(`${supabaseUrl}/functions/v1/classify-case`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${anonKey}`,
-    apikey: anonKey,
-  },
-  body: JSON.stringify({
-    case_id: doc.case_id,
-    policy_version_id: job.policy_version_id ?? null,
-  }),
-});
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceRoleKey}`,
+          apikey: serviceRoleKey,
+        },
+        body: JSON.stringify({
+          case_id: doc.case_id,
+          policy_version_id: job.policy_version_id ?? null,
+        }),
+      });
 
       if (!classifyResponse.ok) {
         const classifyText = await classifyResponse.text();
@@ -538,7 +468,10 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
       if (supabaseUrl && serviceRoleKey) {
         const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-        const body = await req.clone().json().catch(() => ({}));
+        const body = await req
+          .clone()
+          .json()
+          .catch(() => ({}));
         const jobId = body?.job_id;
 
         if (jobId) {
