@@ -180,15 +180,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Failed to insert classification", detail: insertError.message }, 500);
     }
 
-    const mappedCaseStatus =
-      classification === "green" ? "green_approved" : classification === "yellow" ? "yellow_review" : "red_rejected";
-
     const { error: caseUpdateError } = await serviceClient
       .from("cases")
       .update({
         classification,
         ai_pipeline_status: "completed",
-        status: mappedCaseStatus,
       })
       .eq("id", caseId);
 
@@ -199,7 +195,7 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       case_id: caseId,
-      case_status: mappedCaseStatus,
+      case_status: caseRow.status,
       classification_id: insertedClassification.id,
       classification,
       reason_summary: reasonSummary,
