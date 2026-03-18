@@ -342,6 +342,57 @@ export default function CaseDetail() {
       });
   }, [checkResults]);
 
+  const handleRecheckRequested = useCallback(async () => {
+    if (!caseId) throw new Error("Hiányzó ügyazonosító.");
+
+    const { error: caseUpdateError } = await supabaseAny
+      .from("cases")
+      .update({
+        status: "ai_processing",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", caseId);
+
+    if (caseUpdateError) throw caseUpdateError;
+
+    const { data: docs, error: docsError } = await supabaseAny
+      .from("documents")
+      .select("id")
+      .eq("case_id", caseId)
+      .order("created_at", { ascending: false });
+
+    if (docsError) throw docsError;
+
+    const latestDocId = docs?.[0]?.id;
+
+    if (!latestDocId) {
+      throw new Error("Nem található feltöltött dokumentum az újraellenőrzéshez.");
+    }
+
+    const { error: processError } = await supabase.functions.invoke("process-document", {
+      body: {
+        document_id: latestDocId,
+        trigger_source: "seller_recheck",
+      },
+    });
+
+    if (processError) throw processError;
+
+    await loadCheckResults();
+    await loadClassification();
+    await loadUploadedDocuments();
+
+    setCaseData((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "ai_processing",
+            updated_at: new Date().toISOString(),
+          }
+        : prev,
+    );
+  }, [caseId, loadCheckResults, loadClassification, loadUploadedDocuments]);
+
   const handleCaseStatusUpdate = (newStatus: string) => {
     setCaseData((prev) =>
       prev
@@ -444,6 +495,7 @@ export default function CaseDetail() {
                   loadCheckResults();
                   loadClassification();
                 }}
+                onRecheckRequested={handleRecheckRequested}
               />
             )}
 
