@@ -348,7 +348,7 @@ export default function CaseDetail() {
     const { error: caseUpdateError } = await supabaseAny
       .from("cases")
       .update({
-        status: "ai_processing",
+        ai_pipeline_status: "queued",
         updated_at: new Date().toISOString(),
       })
       .eq("id", caseId);
@@ -386,7 +386,7 @@ export default function CaseDetail() {
       prev
         ? {
             ...prev,
-            status: "ai_processing",
+            ai_pipeline_status: "queued",
             updated_at: new Date().toISOString(),
           }
         : prev,
