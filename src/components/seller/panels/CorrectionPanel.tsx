@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { AlertTriangle, Upload, Loader2, Save } from "lucide-react";
 import { uploadCaseDocument } from "@/lib/documentUpload";
 import { supabase } from "@/integrations/supabase/client";
+const supabaseAny = supabase as any;
 
 interface CorrectionRequirement {
   type: "document_replace" | "field_correction";
@@ -146,7 +147,7 @@ export default function CorrectionPanel({ caseId, corrections, onCorrectionCompl
           throw new Error("A részvényszám csak pozitív egész szám lehet.");
         }
 
-        const { data: existingRow, error: loadError } = await supabase
+        const { data: existingRow, error: loadError } = await supabaseAny
           .from("abbazia_shares")
           .select("id")
           .eq("case_id", caseId)
@@ -155,7 +156,7 @@ export default function CorrectionPanel({ caseId, corrections, onCorrectionCompl
         if (loadError) throw loadError;
 
         if (existingRow?.id) {
-          const { error: updateError } = await supabase
+          const { error: updateError } = await supabaseAny
             .from("abbazia_shares")
             .update({
               share_count: parsed,
@@ -164,7 +165,7 @@ export default function CorrectionPanel({ caseId, corrections, onCorrectionCompl
 
           if (updateError) throw updateError;
         } else {
-          const { error: insertError } = await supabase.from("abbazia_shares").insert({
+          const { error: insertError } = await supabaseAny.from("abbazia_shares").insert({
             case_id: caseId,
             share_count: parsed,
           });
