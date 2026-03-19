@@ -425,7 +425,7 @@ export default function NewCase() {
         .update({
           status: "submitted",
           status_group: "processing",
-          current_step: "submitted",
+          current_step: "ai_processing",
           submitted_at: now,
           updated_at: now,
         })
