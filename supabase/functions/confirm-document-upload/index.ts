@@ -103,6 +103,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { data: caseRow, error: caseLoadError } = await serviceClient
+      .from("cases")
+      .select("id, status")
+      .eq("id", doc.case_id)
+      .maybeSingle();
+
+    if (caseLoadError) {
+      return new Response(JSON.stringify({ error: "Failed to load case", detail: caseLoadError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!caseRow) {
+      return new Response(JSON.stringify({ error: "Case not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // 5. Must still be initiated
     if (doc.upload_status !== "initiated") {
       return new Response(
@@ -249,16 +269,40 @@ Deno.serve(async (req) => {
       console.error("Failed to set documents.last_ai_job_id:", docJobLinkError);
     }
 
-    // 11. Mark case AI pipeline as queued
+    // 11. Mark case as docs_uploaded + AI pipeline queued
+    const previousStatus = caseRow.status ?? null;
+    const nextStatus = previousStatus === "docs_uploaded" ? previousStatus : "docs_uploaded";
+
+    const caseUpdatePayload: Record<string, unknown> = {
+      ai_pipeline_status: "queued",
+    };
+
+    if (previousStatus !== "docs_uploaded") {
+      caseUpdatePayload.status = "docs_uploaded";
+    }
+
     const { error: caseUpdateError } = await serviceClient
       .from("cases")
-      .update({
-        ai_pipeline_status: "queued",
-      })
+      .update(caseUpdatePayload)
       .eq("id", doc.case_id);
 
     if (caseUpdateError) {
-      console.error("Failed to set cases.ai_pipeline_status:", caseUpdateError);
+      console.error("Failed to update case status / ai_pipeline_status:", caseUpdateError);
+    }
+
+    if (previousStatus !== "docs_uploaded") {
+      const { error: historyInsertError } = await serviceClient.from("case_status_history").insert({
+        case_id: doc.case_id,
+        from_status: previousStatus,
+        to_status: nextStatus,
+        change_source: "system_document_upload_confirmed",
+        changed_by_user_id: null,
+        note: "Document upload confirmed, case moved to docs_uploaded.",
+      });
+
+      if (historyInsertError) {
+        console.error("Failed to insert case_status_history:", historyInsertError);
+      }
     }
 
     // 12. Fire-and-forget trigger of process-document
