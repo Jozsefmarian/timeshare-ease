@@ -184,33 +184,21 @@ Deno.serve(async (req) => {
       classification === "green" ? "green_approved" : classification === "yellow" ? "yellow_review" : "red_rejected";
 
     const previousStatus = caseRow.status ?? null;
+    const shouldUpdateBusinessStatus = previousStatus !== mappedStatus;
 
-    const { error: caseUpdateError } = await serviceClient
-      .from("cases")
-      .update({
-        classification,
-        status: mappedStatus,
-        ai_pipeline_status: "completed",
-      })
-      .eq("id", caseId);
+    const caseUpdatePayload: Record<string, unknown> = {
+      classification,
+      ai_pipeline_status: "completed",
+    };
+
+    if (shouldUpdateBusinessStatus) {
+      caseUpdatePayload.status = mappedStatus;
+    }
+
+    const { error: caseUpdateError } = await serviceClient.from("cases").update(caseUpdatePayload).eq("id", caseId);
 
     if (caseUpdateError) {
       return jsonResponse({ error: "Failed to update case classification", detail: caseUpdateError.message }, 500);
-    }
-
-    const statusHistoryNote = `AI classification completed: ${classification}`;
-
-    const { error: historyInsertError } = await serviceClient.from("case_status_history").insert({
-      case_id: caseId,
-      from_status: previousStatus,
-      to_status: mappedStatus,
-      change_source: "system_ai_classification",
-      changed_by_user_id: null,
-      note: statusHistoryNote,
-    });
-
-    if (historyInsertError) {
-      return jsonResponse({ error: "Failed to insert case status history", detail: historyInsertError.message }, 500);
     }
 
     return jsonResponse({
