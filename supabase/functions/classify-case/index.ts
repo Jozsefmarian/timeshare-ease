@@ -84,9 +84,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Missing required field: case_id" }, 400);
     }
 
-    const { data: caseRow, error: caseError } = await serviceClient
+    const { data: caseRow, error: caseLoadError } = await serviceClient
       .from("cases")
-      .select("id, status")
+      .select("id, status, submitted_at")
       .eq("id", caseId)
       .maybeSingle();
 
@@ -184,7 +184,11 @@ Deno.serve(async (req) => {
       classification === "green" ? "green_approved" : classification === "yellow" ? "yellow_review" : "red_rejected";
 
     const previousStatus = caseRow.status ?? null;
-    const shouldUpdateBusinessStatus = previousStatus !== mappedStatus;
+
+    const isSubmitted = !!caseRow.submitted_at;
+
+    // Csak akkor írunk business státuszt, ha már submitelve van
+    const shouldUpdateBusinessStatus = isSubmitted && previousStatus !== mappedStatus;
 
     const caseUpdatePayload: Record<string, unknown> = {
       classification,
