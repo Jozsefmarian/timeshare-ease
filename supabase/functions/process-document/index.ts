@@ -485,20 +485,17 @@ Deno.serve(async (req) => {
 
           const { data: failedJob } = await serviceClient
             .from("ai_validation_jobs")
-            .select("document_id")
+            .select("document_id, case_id")
             .eq("id", jobId)
             .maybeSingle();
 
-          if (failedJob?.document_id) {
+          if (failedJob?.case_id) {
             await serviceClient
-              .from("documents")
+              .from("cases")
               .update({
-                ai_status: "failed",
-                ocr_status: "failed",
-                parse_status: "failed",
-                validation_status: "error",
+                ai_pipeline_status: "failed",
               })
-              .eq("id", failedJob.document_id);
+              .eq("id", failedJob.case_id);
           }
         }
       }
